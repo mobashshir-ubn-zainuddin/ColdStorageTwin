@@ -225,15 +225,15 @@
             <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Domain (m)</h6>
             <div class="mb-3">
                 <label class="form-label">Length X</label>
-                <input type="number" class="form-control" name="Lx" value="10.0" step="0.1" min="1">
+                <input type="number" class="form-control" name="Lx" value="10.0" step="any" min="1">
             </div>
             <div class="mb-3">
                 <label class="form-label">Length Y</label>
-                <input type="number" class="form-control" name="Ly" value="10.0" step="0.1" min="1">
+                <input type="number" class="form-control" name="Ly" value="10.0" step="any" min="1">
             </div>
             <div class="mb-3">
                 <label class="form-label">Length Z</label>
-                <input type="number" class="form-control" name="Lz" value="10.0" step="0.1" min="1">
+                <input type="number" class="form-control" name="Lz" value="10.0" step="any" min="1">
             </div>
         </div>
 
@@ -242,15 +242,15 @@
             <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Grid Resolution</h6>
             <div class="mb-3">
                 <label class="form-label">Points X</label>
-                <input type="number" class="form-control" name="nx" value="10" min="3" max="50">
+                <input type="number" class="form-control" name="nx" value="10" step="1" min="3" max="50">
             </div>
             <div class="mb-3">
                 <label class="form-label">Points Y</label>
-                <input type="number" class="form-control" name="ny" value="10" min="3" max="50">
+                <input type="number" class="form-control" name="ny" value="10" step="1" min="3" max="50">
             </div>
             <div class="mb-3">
                 <label class="form-label">Points Z</label>
-                <input type="number" class="form-control" name="nz" value="10" min="3" max="50">
+                <input type="number" class="form-control" name="nz" value="10" step="1" min="3" max="50">
             </div>
         </div>
 
@@ -259,22 +259,22 @@
             <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Thermal Properties</h6>
             <div class="mb-3">
                 <label class="form-label">Thermal Conductivity k (W/m·K)</label>
-                <input type="number" class="form-control" name="k" value="0.024" step="0.001" min="0.001">
+                <input type="number" class="form-control" name="k" value="0.024" step="any" min="0.001">
                 <small class="text-muted-custom">Standard (Air): 0.024</small>
             </div>
             <div class="mb-3">
                 <label class="form-label">Density ρ (kg/m³)</label>
-                <input type="number" class="form-control" name="rho" value="1.2" step="0.1" min="0.1">
+                <input type="number" class="form-control" name="rho" value="1.2" step="any" min="0.1">
                 <small class="text-muted-custom">Standard (Air): 1.2</small>
             </div>
             <div class="mb-3">
                 <label class="form-label">Specific Heat Cp (J/kg·K)</label>
-                <input type="number" class="form-control" name="Cp" value="1005" step="1" min="1">
+                <input type="number" class="form-control" name="Cp" value="1005" step="any" min="1">
                 <small class="text-muted-custom">Standard (Air): 1005</small>
             </div>
             <div class="mb-3">
                 <label class="form-label">Thermal Diffusivity α (m²/s)</label>
-                <input type="number" class="form-control" name="alpha" id="alphaInput" value="1.99e-5" step="1e-7" min="1e-10" readonly>
+                <input type="number" class="form-control" name="alpha" id="alphaInput" value="1.99e-5" step="any" min="1e-10" readonly>
                 <small class="text-muted-custom">Standard: ~2.0×10⁻⁵ m²/s</small>
             </div>
         </div>
@@ -284,12 +284,12 @@
             <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Moisture Properties</h6>
             <div class="mb-3">
                 <label class="form-label">Latent Heat Lv (J/kg)</label>
-                <input type="number" class="form-control" name="Lv" value="2.26e6" step="1e4" min="1e5">
+                <input type="number" class="form-control" name="Lv" value="2.26e6" step="any" min="1e5">
                 <small class="text-muted-custom">Water: 2.26×10⁶ J/kg</small>
             </div>
             <div class="mb-3">
                 <label class="form-label">Moisture Diffusivity Dm (m²/s)</label>
-                <input type="number" class="form-control" name="Dm" value="2.2e-5" step="1e-6" min="1e-10">
+                <input type="number" class="form-control" name="Dm" value="2.2e-5" step="any" min="1e-10">
                 <small class="text-muted-custom">Standard: 2.2×10⁻⁵ m²/s</small>
             </div>
         </div>
@@ -299,15 +299,15 @@
             <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Temperature (°C)</h6>
             <div class="mb-3">
                 <label class="form-label">Initial</label>
-                <input type="number" class="form-control" name="T_initial" value="-20.0" step="0.1">
+                <input type="number" class="form-control" name="T_initial" value="-20.0" step="any">
             </div>
             <div class="mb-3">
                 <label class="form-label">Wall</label>
-                <input type="number" class="form-control" name="T_wall" value="-20.0" step="0.1">
+                <input type="number" class="form-control" name="T_wall" value="-20.0" step="any">
             </div>
             <div class="mb-3">
                 <label class="form-label">Inlet</label>
-                <input type="number" class="form-control" name="T_inlet" value="-25.0" step="0.1">
+                <input type="number" class="form-control" name="T_inlet" value="-25.0" step="any">
             </div>
         </div>
 
@@ -316,19 +316,19 @@
             <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Moisture (Fraction)</h6>
             <div class="mb-3">
                 <label class="form-label">Initial w₀</label>
-                <input type="number" class="form-control" name="W_initial" value="0.01" step="0.001" min="0" max="0.1">
+                <input type="number" class="form-control" name="W_initial" value="0.01" step="any" min="0" max="0.1">
             </div>
             <div class="mb-3">
                 <label class="form-label">Wall</label>
-                <input type="number" class="form-control" name="W_wall" value="0.005" step="0.001" min="0" max="0.1">
+                <input type="number" class="form-control" name="W_wall" value="0.005" step="any" min="0" max="0.1">
             </div>
             <div class="mb-3">
                 <label class="form-label">Inlet</label>
-                <input type="number" class="form-control" name="W_inlet" value="0.008" step="0.001" min="0" max="0.1">
+                <input type="number" class="form-control" name="W_inlet" value="0.008" step="any" min="0" max="0.1">
             </div>
             <div class="mb-3">
                 <label class="form-label">Ambient RH (0-1)</label>
-                <input type="number" class="form-control" name="RH_ambient" value="0.8" step="0.05" min="0" max="1">
+                <input type="number" class="form-control" name="RH_ambient" value="0.8" step="any" min="0" max="1">
             </div>
         </div>
 
@@ -337,11 +337,11 @@
             <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Time Parameters</h6>
             <div class="mb-3">
                 <label class="form-label">Time Steps</label>
-                <input type="number" class="form-control" name="time_steps" value="10" min="1" max="100">
+                <input type="number" class="form-control" name="time_steps" value="10" step="1" min="1" max="100">
             </div>
             <div class="mb-3">
                 <label class="form-label">Δt (seconds)</label>
-                <input type="number" class="form-control" name="dt" value="100.0" step="10" min="10">
+                <input type="number" class="form-control" name="dt" value="100.0" step="any" min="10">
             </div>
         </div>
     </div>
