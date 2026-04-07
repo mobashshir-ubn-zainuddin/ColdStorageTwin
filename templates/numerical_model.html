@@ -1,0 +1,474 @@
+{% extends "base.html" %}
+
+{% block title %}Numerical Model - Cold Storage Digital Twin{% endblock %}
+
+{% block extra_css %}
+<script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+    .equation-box {
+        background-color: var(--light-blue);
+        padding: 1.5rem;
+        border-radius: 8px;
+        border-left: 4px solid var(--accent-blue);
+        margin: 1.5rem 0;
+        overflow-x: auto;
+    }
+
+    .code-box {
+        background-color: #f5f5f5;
+        padding: 1.5rem;
+        border-radius: 8px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        overflow-x: auto;
+        border: 1px solid var(--border-color);
+        margin: 1rem 0;
+    }
+
+    .method-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        border-left: 4px solid var(--accent-blue);
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .method-card h6 {
+        color: var(--primary-blue);
+        font-weight: 700;
+        margin-bottom: 0.75rem;
+    }
+
+    .stability-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 1.5rem 0;
+    }
+
+    .stability-table th,
+    .stability-table td {
+        padding: 1rem;
+        border: 1px solid var(--border-color);
+        text-align: left;
+    }
+
+    .stability-table th {
+        background-color: var(--light-blue);
+        color: var(--primary-blue);
+        font-weight: 700;
+    }
+
+    .stability-table tr:nth-child(even) {
+        background-color: #fafafa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="section-title mb-5">Numerical Model</h1>
+
+<!-- Overview -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title">Coupled Heat-Moisture Transfer</h5>
+    </div>
+    <div class="card-body">
+        <p>
+            Cold storage involves more than just heat transfer. The complete physics includes:
+        </p>
+        <ul style="margin-left: 1.5rem;">
+            <li><strong>Heat diffusion</strong> — thermal energy spreads through the domain</li>
+            <li><strong>Moisture diffusion</strong> — water vapor migrates through the air</li>
+            <li><strong>Latent heat effects</strong> — condensation and frost formation release energy</li>
+            <li><strong>Temperature-humidity coupling</strong> — temperature and moisture fields are interdependent</li>
+        </ul>
+        <p style="margin-top: 1rem;">
+            This requires solving <strong>two coupled PDEs</strong> simultaneously.
+        </p>
+    </div>
+</div>
+
+<!-- Governing Equations -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title">Governing Equations</h5>
+    </div>
+    <div class="card-body">
+        <h6 style="color: var(--primary-blue); margin-bottom: 0.75rem;">1. Energy Equation (Temperature)</h6>
+        <p>
+            The thermal behavior includes heat diffusion plus latent heat release from moisture changes:
+        </p>
+        
+        <div class="equation-box">
+            <p style="text-align: center; font-size: 1.1rem;">
+                $$\rho C_p \frac{\partial T}{\partial t} = k \nabla^2 T + L_v \frac{\partial w}{\partial t}$$
+            </p>
+        </div>
+
+        <h6 style="color: var(--primary-blue); margin-top: 1.5rem;">Where:</h6>
+        <ul style="margin-left: 1.5rem;">
+            <li>\(T(x, y, z, t)\) = Temperature field (°C)</li>
+            <li>\(w(x, y, z, t)\) = Moisture content (fraction)</li>
+            <li>\(k\) = Thermal conductivity (W/(m·K))</li>
+            <li>\(\rho\) = Density (kg/m³)</li>
+            <li>\(C_p\) = Specific heat capacity (J/(kg·K))</li>
+            <li>\(L_v\) = Latent heat of vaporization (J/kg) ≈ 2.26×10⁶ J/kg</li>
+            <li>\(\nabla^2 T\) = Laplacian operator</li>
+        </ul>
+
+        <h6 style="color: var(--primary-blue); margin-top: 2rem; margin-bottom: 0.75rem;">2. Moisture Diffusion Equation</h6>
+        <p>
+            Moisture behaves like a diffusing scalar:
+        </p>
+        
+        <div class="equation-box">
+            <p style="text-align: center; font-size: 1.1rem;">
+                $$\frac{\partial w}{\partial t} = D_m \nabla^2 w$$
+            </p>
+        </div>
+
+        <h6 style="color: var(--primary-blue); margin-top: 1.5rem;">Where:</h6>
+        <ul style="margin-left: 1.5rem;">
+            <li>\(w\) = Moisture concentration (mass fraction)</li>
+            <li>\(D_m\) = Moisture diffusivity (m²/s) ≈ 10⁻⁶ m²/s</li>
+        </ul>
+
+        <p style="margin-top: 1.5rem; padding: 1rem; background-color: var(--light-blue); border-radius: 8px;">
+            <strong>Physical Coupling:</strong> When moisture changes (condensation or evaporation), latent heat is 
+            released or absorbed. This directly affects the temperature field. Conversely, temperature affects 
+            saturation moisture levels, creating a two-way coupling.
+        </p>
+    </div>
+</div>
+
+<!-- Coupling Mechanism -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title">Heat-Moisture Coupling & Condensation</h5>
+    </div>
+    <div class="card-body">
+        <h6 style="color: var(--primary-blue); margin-bottom: 0.75rem;">Coupling Flow</h6>
+        <div class="equation-box" style="text-align: center;">
+            <p>
+                Moisture Diffusion → Condensation (if T &lt; T<sub>dew</sub>) → Latent Heat Release → Temperature Changes
+            </p>
+        </div>
+
+        <h6 style="color: var(--primary-blue); margin-top: 1.5rem; margin-bottom: 0.75rem;">Dew Point Condition</h6>
+        <p>
+            Condensation occurs when the temperature drops below the dew point:
+        </p>
+        <div class="equation-box">
+            <p style="text-align: center;">
+                $$T < T_{dew}$$
+            </p>
+        </div>
+        
+        <p style="margin-top: 1rem;">
+            The dew point is calculated using the <strong>Magnus formula</strong>:
+        </p>
+        <div class="equation-box">
+            <p style="text-align: center;">
+                $$T_{dew} = \frac{b \cdot \gamma(T, RH)}{a - \gamma(T, RH)}$$
+            </p>
+            <p style="text-align: center; margin-top: 0.5rem;">
+                where \(\gamma(T, RH) = \frac{aT}{b + T} + \ln(RH)\)
+            </p>
+        </div>
+
+        <h6 style="color: var(--primary-blue); margin-top: 1.5rem;">Magnus Constants:</h6>
+        <ul style="margin-left: 1.5rem;">
+            <li>\(a = 17.27\)</li>
+            <li>\(b = 237.7\) °C</li>
+            <li>\(RH\) = Relative humidity (0–1)</li>
+        </ul>
+    </div>
+</div>
+
+<!-- Numerical Method -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title">Numerical Solution Method</h5>
+    </div>
+    <div class="card-body">
+        <p>
+            Both equations are solved using the <strong>Explicit Finite Difference Method (EFDM)</strong> with 
+            a staggered update scheme.
+        </p>
+
+        <h6 style="color: var(--primary-blue); margin-top: 1.5rem; margin-bottom: 0.75rem;">Spatial Discretization</h6>
+        <p>
+            The domain is divided into a structured rectangular grid with uniform spacing:
+        </p>
+        <div class="equation-box">
+            <p style="text-align: center;">
+                $$\Delta x = \frac{L_x}{n_x - 1}, \quad \Delta y = \frac{L_y}{n_y - 1}, \quad \Delta z = \frac{L_z}{n_z - 1}$$
+            </p>
+        </div>
+
+        <h6 style="color: var(--primary-blue); margin-top: 1.5rem; margin-bottom: 0.75rem;">Discrete Update Formulas</h6>
+        
+        <div class="method-card">
+            <h6>Moisture Update (First)</h6>
+            <div class="equation-box">
+                <p style="text-align: center;">
+                    $$w_{i,j,k}^{n+1} = w_{i,j,k}^n + r_w \left[ \nabla^2 w \right]$$
+                </p>
+            </div>
+            <p>Where \(r_w = \frac{D_m \Delta t}{(\Delta x)^2}\)</p>
+        </div>
+
+        <div class="method-card">
+            <h6>Temperature Update (Second, with Latent Heat Coupling)</h6>
+            <div class="equation-box">
+                <p style="text-align: center;">
+                    $$T_{i,j,k}^{n+1} = T_{i,j,k}^n + r_T \left[ \nabla^2 T \right] + \frac{L_v}{\rho C_p} \left( w_{i,j,k}^{n+1} - w_{i,j,k}^n \right)$$
+                </p>
+            </div>
+            <p>Where \(r_T = \frac{\alpha \Delta t}{(\Delta x)^2}\) and \(\alpha = \frac{k}{\rho C_p}\)</p>
+        </div>
+
+        <h6 style="color: var(--primary-blue); margin-top: 1.5rem; margin-bottom: 0.75rem;">Laplacian Expansion (3D)</h6>
+        <div class="equation-box">
+            <p style="text-align: center;">
+                $$\nabla^2 T = T_{i+1,j,k} + T_{i-1,j,k} + T_{i,j+1,k} + T_{i,j-1,k} + T_{i,j,k+1} + T_{i,j,k-1} - 6T_{i,j,k}$$
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Stability Analysis -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title">Stability Analysis</h5>
+    </div>
+    <div class="card-body">
+        <p>
+            The explicit method is <strong>conditionally stable</strong>. For the coupled system, <strong>both</strong>
+            stability conditions must be satisfied.
+        </p>
+
+        <h6 style="color: var(--primary-blue); margin-top: 1.5rem; margin-bottom: 0.75rem;">Stability Criteria</h6>
+        <p>
+            For the 3D coupled heat-moisture system with uniform grid spacing:
+        </p>
+        <div class="equation-box">
+            <p style="text-align: center; font-size: 1.1rem;">
+                $$r_T = \frac{\alpha \Delta t}{(\Delta x)^2} \leq \frac{1}{6}$$
+            </p>
+            <p style="text-align: center; font-size: 1.1rem; margin-top: 0.5rem;">
+                $$r_W = \frac{D_m \Delta t}{(\Delta x)^2} \leq \frac{1}{6}$$
+            </p>
+        </div>
+
+        <p style="margin-top: 1.5rem; padding: 1rem; background-color: var(--light-blue); border-radius: 8px; border: 1px solid var(--accent-blue);">
+            <strong>Important:</strong> Both \(r_T\) and \(r_W\) must satisfy the CFL condition. If either is violated, 
+            the numerical solution will oscillate and diverge. This application automatically checks both stability 
+            conditions.
+        </p>
+
+        <h6 style="color: var(--primary-blue); margin-top: 1.5rem; margin-bottom: 0.75rem;">Stability Implications</h6>
+        <table class="stability-table">
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Effect on Stability</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Thermal diffusivity (α)</td>
+                    <td>Lower α allows larger Δt</td>
+                </tr>
+                <tr>
+                    <td>Moisture diffusivity (D<sub>m</sub>)</td>
+                    <td>Lower D<sub>m</sub> allows larger Δt</td>
+                </tr>
+                <tr>
+                    <td>Grid spacing (Δx)</td>
+                    <td>Larger Δx allows larger Δt (proportional to Δx²)</td>
+                </tr>
+                <tr>
+                    <td>Typical constraint</td>
+                    <td>Usually D<sub>m</sub> &gt; α, so moisture stability is more restrictive</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Boundary Conditions -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title">Boundary Conditions</h5>
+    </div>
+    <div class="card-body">
+        <p>
+            Both temperature and moisture require boundary conditions on all faces of the domain. 
+            This implementation uses <strong>Dirichlet boundary conditions</strong> (fixed values):
+        </p>
+
+        <div class="method-card">
+            <h6>Temperature Boundaries</h6>
+            <div class="equation-box">
+                <p style="text-align: center;">
+                    $$T_{\text{walls}} = T_{\text{wall}}, \quad T_{\text{inlet}} = T_{\text{inlet}}$$
+                </p>
+            </div>
+        </div>
+
+        <div class="method-card">
+            <h6>Moisture Boundaries</h6>
+            <div class="equation-box">
+                <p style="text-align: center;">
+                    $$w_{\text{walls}} = w_{\text{wall}}, \quad w_{\text{inlet}} = w_{\text{inlet}}$$
+                </p>
+            </div>
+        </div>
+
+        <h6 style="color: var(--primary-blue); margin-top: 1.5rem; margin-bottom: 0.75rem;">Initial Conditions</h6>
+        <div class="equation-box">
+            <p style="text-align: center;">
+                $$T(x, y, z, t=0) = T_{\text{initial}}, \quad w(x, y, z, t=0) = w_{\text{initial}}$$
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Implementation Details -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title">Implementation Algorithm</h5>
+    </div>
+    <div class="card-body">
+        <h6 style="color: var(--primary-blue); margin-bottom: 1rem;">Time Stepping Loop (Coupled System)</h6>
+        <div class="code-box">
+<pre><code>for each time step n = 0 to N_steps:
+    # Check stability for BOTH fields
+    if r_T > 1/6 or r_W > 1/6:
+        raise StabilityError("Configuration is unstable")
+    
+    # STEP 1: Update moisture field (diffusion only)
+    for interior points (i,j,k):
+        W_new[i,j,k] = W[i,j,k] + r_W * (
+            W[i+1,j,k] + W[i-1,j,k] +
+            W[i,j+1,k] + W[i,j-1,k] +
+            W[i,j,k+1] + W[i,j,k-1] - 6*W[i,j,k]
+        )
+    
+    # STEP 2: Update temperature (diffusion + latent heat)
+    for interior points (i,j,k):
+        laplacian_T = (T[i+1,j,k] + T[i-1,j,k] +
+                       T[i,j+1,k] + T[i,j-1,k] +
+                       T[i,j,k+1] + T[i,j,k-1] - 6*T[i,j,k])
+        
+        T_new[i,j,k] = T[i,j,k] + r_T * laplacian_T
+                     + (Lv / (ρ*Cp)) * (W_new[i,j,k] - W[i,j,k])
+    
+    # STEP 3: Apply condensation if moisture exceeds saturation
+    W_sat = calculate_saturation_moisture(T_new)
+    where W_new > W_sat:
+        excess = W_new - W_sat
+        W_new = W_sat
+        T_new += (Lv / (ρ*Cp)) * excess  # Latent heat release
+    
+    # STEP 4: Apply boundary conditions
+    T_new[boundaries] = T_wall or T_inlet
+    W_new[boundaries] = W_wall or W_inlet
+    
+    # Advance to next time step
+    T, W = T_new, W_new
+</code></pre>
+        </div>
+    </div>
+</div>
+
+<!-- Physical Parameters -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title">Typical Physical Parameters</h5>
+    </div>
+    <div class="card-body">
+        <table class="stability-table">
+            <thead>
+                <tr>
+                    <th>Parameter</th>
+                    <th>Symbol</th>
+                    <th>Typical Value</th>
+                    <th>Units</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Thermal conductivity</td>
+                    <td>\(k\)</td>
+                    <td>0.024</td>
+                    <td>W/(m·K)</td>
+                </tr>
+                <tr>
+                    <td>Density</td>
+                    <td>\(\rho\)</td>
+                    <td>1.2</td>
+                    <td>kg/m³</td>
+                </tr>
+                <tr>
+                    <td>Specific heat</td>
+                    <td>\(C_p\)</td>
+                    <td>1005</td>
+                    <td>J/(kg·K)</td>
+                </tr>
+                <tr>
+                    <td>Thermal diffusivity</td>
+                    <td>\(\alpha = k/(\rho C_p)\)</td>
+                    <td>~2.0×10⁻⁵</td>
+                    <td>m²/s</td>
+                </tr>
+                <tr>
+                    <td>Latent heat of vaporization</td>
+                    <td>\(L_v\)</td>
+                    <td>2.26×10⁶</td>
+                    <td>J/kg</td>
+                </tr>
+                <tr>
+                    <td>Moisture diffusivity</td>
+                    <td>\(D_m\)</td>
+                    <td>2.2×10⁻⁵</td>
+                    <td>m²/s</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Accuracy and Convergence -->
+<div class="card bg-light-blue">
+    <div class="card-body">
+        <h5 style="color: var(--primary-blue); margin-bottom: 1rem;">Accuracy Considerations</h5>
+        <ul style="margin-left: 1.5rem;">
+            <li><strong>Spatial Order:</strong> Central differences have second-order accuracy: O(Δx²)</li>
+            <li><strong>Temporal Order:</strong> Forward Euler has first-order accuracy: O(Δt)</li>
+            <li><strong>Coupling:</strong> Staggered update (moisture first, then temperature) maintains stability</li>
+            <li><strong>Conservation:</strong> Condensation model conserves total energy (latent + sensible)</li>
+            <li><strong>Grid Refinement:</strong> Smaller Δx requires Δt ∝ Δx² for stability</li>
+        </ul>
+    </div>
+</div>
+
+<div style="text-align: center; margin-top: 3rem;">
+    <a href="/dashboard" class="btn btn-primary btn-lg">Run a Simulation</a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // MathJax configuration
+    MathJax = {
+        tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']]
+        }
+    };
+</script>
+{% endblock %}

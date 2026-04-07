@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}About Cold Storage - Cold Storage Digital Twin{% endblock %}
+
+{% block content %}
+<h1 class="section-title mb-5">Cold Storage Facilities</h1>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title">What is Cold Storage?</h5>
+    </div>
+    <div class="card-body">
+        <p>
+            Cold storage facilities are specialized environments designed to maintain low temperatures for the preservation
+            and storage of perishable goods, pharmaceuticals, and other temperature-sensitive materials. These facilities
+            are critical infrastructure in the food supply chain, healthcare, and biotechnology industries.
+        </p>
+        <p>
+            Temperature control in cold storage is maintained through sophisticated cooling systems, insulation, and
+            thermal management strategies. Understanding the thermal dynamics is essential for:
+        </p>
+        <ul>
+            <li>Preserving product quality and extending shelf life</li>
+            <li>Ensuring food safety and regulatory compliance</li>
+            <li>Optimizing energy consumption</li>
+            <li>Preventing temperature excursions that can damage goods</li>
+            <li>Designing efficient cooling systems</li>
+        </ul>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title">Typical Temperature Ranges</h5>
+            </div>
+            <div class="card-body">
+                <ul style="list-style: none; padding: 0;">
+                    <li style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+                        <strong>Chilled Storage:</strong> 0°C to 5°C
+                    </li>
+                    <li style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+                        <strong>Frozen Storage:</strong> -18°C to -25°C
+                    </li>
+                    <li style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+                        <strong>Deep Freeze:</strong> -30°C to -45°C
+                    </li>
+                    <li style="padding: 0.75rem 0;">
+                        <strong>Ultra-low:</strong> Below -50°C
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="card-title">Key Characteristics</h5>
+            </div>
+            <div class="card-body">
+                <ul style="list-style: none; padding: 0;">
+                    <li style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+                        <strong>Insulation:</strong> High-quality thermal insulation (foam, panels)
+                    </li>
+                    <li style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+                        <strong>Cooling Systems:</strong> Refrigeration cycles (vapor-compression or absorption)
+                    </li>
+                    <li style="padding: 0.75rem 0; border-bottom: 1px solid #eee;">
+                        <strong>Air Circulation:</strong> Controlled airflow for uniform temperature
+                    </li>
+                    <li style="padding: 0.75rem 0;">
+                        <strong>Monitoring:</strong> Temperature sensors and alarm systems
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="card-title">Thermal Challenges</h5>
+    </div>
+    <div class="card-body">
+        <h6 style="color: var(--primary-blue); margin-top: 1rem; margin-bottom: 0.5rem;">Heat Infiltration</h6>
+        <p>
+            Heat transfer from the warm external environment to the cold interior occurs through:
+        </p>
+        <ul style="margin-left: 1.5rem; margin-bottom: 1rem;">
+            <li><strong>Conduction:</strong> Through walls, roof, and floor</li>
+            <li><strong>Infiltration:</strong> Through door openings and air leaks</li>
+            <li><strong>Internal Heat Load:</strong> From equipment, lights, and personnel</li>
+        </ul>
+
+        <h6 style="color: var(--primary-blue); margin-bottom: 0.5rem;">Thermal Stratification</h6>
+        <p>
+            Temperature variations occur vertically and horizontally due to:
+        </p>
+        <ul style="margin-left: 1.5rem; margin-bottom: 1rem;">
+            <li>Non-uniform cooling air distribution</li>
+            <li>Different storage densities and configurations</li>
+            <li>Heat generation from stacked products</li>
+        </ul>
+
+        <h6 style="color: var(--primary-blue); margin-bottom: 0.5rem;">Frost Accumulation</h6>
+        <p>
+            Moisture from infiltrating air condenses and freezes on evaporator coils, reducing efficiency.
+            Regular defrosting cycles are necessary.
+        </p>
+    </div>
+</div>
+
+<div class="card bg-light-blue">
+    <div class="card-body">
+        <h5 style="color: var(--primary-blue); margin-bottom: 1rem;">Why Simulation Matters</h5>
+        <p>
+            Numerical simulations allow engineers to:
+        </p>
+        <ul style="margin-left: 1.5rem;">
+            <li>Test design modifications before construction</li>
+            <li>Optimize cooling system placement and capacity</li>
+            <li>Predict temperature distribution under various loads</li>
+            <li>Identify problematic zones with poor temperature control</li>
+            <li>Validate compliance with temperature specifications</li>
+            <li>Reduce energy consumption through better design</li>
+        </ul>
+    </div>
+</div>
+
+<div style="text-align: center; margin-top: 3rem;">
+    <a href="/dashboard" class="btn btn-primary btn-lg">Try the Simulation</a>
+</div>
+{% endblock %}

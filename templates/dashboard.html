@@ -1,0 +1,585 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Cold Storage Digital Twin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .input-section {
+        background-color: var(--light-blue);
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+
+    .results-section {
+        margin-top: 2rem;
+    }
+
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        margin-bottom: 1rem;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: var(--primary-blue);
+        margin-bottom: 0.5rem;
+    }
+
+    .stat-label {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .stability-indicator {
+        padding: 1rem;
+        border-radius: 8px;
+        margin: 1rem 0;
+        font-weight: 600;
+    }
+
+    .stability-good {
+        background-color: #c8e6c9;
+        color: #2e7d32;
+        border: 1px solid #81c784;
+    }
+
+    .stability-warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffc107;
+    }
+
+    .stability-bad {
+        background-color: #ffcdd2;
+        color: #c62828;
+        border: 1px solid #f44336;
+    }
+
+    .heatmap-container {
+        text-align: center;
+        margin: 2rem 0;
+    }
+
+    .heatmap-container img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .param-group {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        border-left: 4px solid var(--accent-blue);
+    }
+
+    .param-group h6 {
+        color: var(--primary-blue);
+        font-weight: 700;
+        margin-bottom: 1rem;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 1px;
+    }
+
+    .viz-tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #e0e0e0;
+        flex-wrap: wrap;
+    }
+
+    .viz-tab-btn {
+        padding: 0.75rem 1.25rem;
+        border: none;
+        background: none;
+        cursor: pointer;
+        color: #666;
+        font-weight: 500;
+        border-bottom: 3px solid transparent;
+        transition: all 0.3s ease;
+        margin-bottom: -2px;
+    }
+
+    .viz-tab-btn:hover {
+        color: var(--primary-blue);
+    }
+
+    .viz-tab-btn.active {
+        color: var(--primary-blue);
+        border-bottom-color: var(--primary-blue);
+    }
+
+    .viz-tab-content {
+        display: none;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .viz-tab-content.active {
+        display: block;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    .viz-iframe {
+        width: 100%;
+        height: 800px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .viz-button-group {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+    }
+
+    .viz-open-btn {
+        padding: 0.5rem 1rem;
+        background-color: var(--primary-blue);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: background-color 0.3s ease;
+    }
+
+    .viz-open-btn:hover {
+        background-color: #1e40af;
+    }
+
+    .viz-info-text {
+        color: #666;
+        font-size: 0.9rem;
+        padding: 0.75rem; 
+        background-color: #f5f5f5;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1 class="section-title mb-5">Simulation Dashboard</h1>
+
+<div class="row">
+    <!-- Input Section -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title">Simulation Parameters</h5>
+            </div>
+            <div class="card-body">
+                <form id="simulationForm">
+                    <!-- Domain Parameters -->
+                    <div class="param-group">
+                        <h6>Domain (m)</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Length X</label>
+                            <input type="number" class="form-control" name="Lx" value="10.0" step="0.1" min="1">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Length Y</label>
+                            <input type="number" class="form-control" name="Ly" value="10.0" step="0.1" min="1">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Length Z</label>
+                            <input type="number" class="form-control" name="Lz" value="10.0" step="0.1" min="1">
+                        </div>
+                    </div>
+
+                    <!-- Grid Parameters -->
+                    <div class="param-group">
+                        <h6>Grid Resolution</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Points X</label>
+                            <input type="number" class="form-control" name="nx" value="10" min="3" max="50">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Points Y</label>
+                            <input type="number" class="form-control" name="ny" value="10" min="3" max="50">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Points Z</label>
+                            <input type="number" class="form-control" name="nz" value="10" min="3" max="50">
+                        </div>
+                    </div>
+
+                    <!-- Material Properties -->
+                    <div class="param-group">
+                        <h6>Thermal Properties</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Thermal Conductivity k (W/m·K)</label>
+                            <input type="number" class="form-control" name="k" value="0.024" step="0.001" min="0.001">
+                            <small class="text-muted-custom">Standard (Air): 0.024</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Density ρ (kg/m³)</label>
+                            <input type="number" class="form-control" name="rho" value="1.2" step="0.1" min="0.1">
+                            <small class="text-muted-custom">Standard (Air): 1.2</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Specific Heat Cp (J/kg·K)</label>
+                            <input type="number" class="form-control" name="Cp" value="1005" step="1" min="1">
+                            <small class="text-muted-custom">Standard (Air): 1005</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Thermal Diffusivity α (m²/s)</label>
+                            <input type="number" class="form-control" name="alpha" id="alphaInput" value="1.99e-5" step="1e-7" min="1e-10" readonly>
+                            <small class="text-muted-custom">Standard: ~2.0×10⁻⁵ m²/s</small>
+                        </div>
+                    </div>
+
+                    <!-- Moisture Properties -->
+                    <div class="param-group">
+                        <h6>Moisture Properties</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Latent Heat Lv (J/kg)</label>
+                            <input type="number" class="form-control" name="Lv" value="2.26e6" step="1e4" min="1e5">
+                            <small class="text-muted-custom">Water: 2.26×10⁶ J/kg</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Moisture Diffusivity Dm (m²/s)</label>
+                            <input type="number" class="form-control" name="Dm" value="2.2e-5" step="1e-6" min="1e-10">
+                            <small class="text-muted-custom">Standard: 2.2×10⁻⁵ m²/s</small>
+                        </div>
+                    </div>
+
+                    <!-- Temperature Conditions -->
+                    <div class="param-group">
+                        <h6>Temperature (°C)</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Initial</label>
+                            <input type="number" class="form-control" name="T_initial" value="-20.0" step="0.1">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Wall</label>
+                            <input type="number" class="form-control" name="T_wall" value="-20.0" step="0.1">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Inlet</label>
+                            <input type="number" class="form-control" name="T_inlet" value="-25.0" step="0.1">
+                        </div>
+                    </div>
+
+                    <!-- Moisture Conditions -->
+                    <div class="param-group">
+                        <h6>Moisture (Fraction)</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Initial w₀</label>
+                            <input type="number" class="form-control" name="W_initial" value="0.01" step="0.001" min="0" max="0.1">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Wall</label>
+                            <input type="number" class="form-control" name="W_wall" value="0.005" step="0.001" min="0" max="0.1">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Inlet</label>
+                            <input type="number" class="form-control" name="W_inlet" value="0.008" step="0.001" min="0" max="0.1">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Ambient RH (0-1)</label>
+                            <input type="number" class="form-control" name="RH_ambient" value="0.8" step="0.05" min="0" max="1">
+                        </div>
+                    </div>
+
+                    <!-- Time Parameters -->
+                    <div class="param-group">
+                        <h6>Time Parameters</h6>
+                        <div class="mb-3">
+                            <label class="form-label">Time Steps</label>
+                            <input type="number" class="form-control" name="time_steps" value="10" min="1" max="100">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Δt (seconds)</label>
+                            <input type="number" class="form-control" name="dt" value="100.0" step="10" min="10">
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div class="d-grid gap-2 mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg" id="runBtn">
+                            <span id="runBtnText">Run Simulation</span>
+                            <span id="runBtnSpinner" style="display: none;" class="loading ms-2"></span>
+                        </button>
+                        <button type="reset" class="btn btn-secondary">Reset to Defaults</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Section -->
+    <div class="col-lg-8">
+        <div id="resultsContainer" style="display: none;">
+            <!-- Stability Indicator -->
+            <div id="stabilityContainer"></div>
+
+            <!-- Statistics -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">Temperature Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-value" id="minTemp">-</div>
+                                <div class="stat-label">Minimum Temperature</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-value" id="maxTemp">-</div>
+                                <div class="stat-label">Maximum Temperature</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-value" id="meanTemp">-</div>
+                                <div class="stat-label">Mean Temperature</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-value" id="stdTemp">-</div>
+                                <div class="stat-label">Standard Deviation</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Moisture Statistics -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">Moisture Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-value" id="minMoisture">-</div>
+                                <div class="stat-label">Minimum Moisture</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-value" id="maxMoisture">-</div>
+                                <div class="stat-label">Maximum Moisture</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="stat-card">
+                                <div class="stat-value" id="meanMoisture">-</div>
+                                <div class="stat-label">Mean Moisture</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-value" id="totalCondensation">-</div>
+                                <div class="stat-label">Total Condensation</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="stat-card">
+                                <div class="stat-value" id="maxCondensation">-</div>
+                                <div class="stat-label">Max Condensation Rate</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Heatmap -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">Temperature Distribution (Middle Plane)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="heatmap-container">
+                        <img id="heatmapImg" src="" alt="Temperature Heatmap" style="display: none;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Initial Message -->
+        <div id="initialMessage" class="alert alert-info-custom">
+            <p style="margin: 0;">
+                <strong>Welcome to the Dashboard</strong><br>
+                Configure the simulation parameters on the left and click "Run Simulation" to generate results.
+                The solver will compute the 3D temperature distribution and display visualizations here.
+            </p>
+        </div>
+
+        <!-- Error Message -->
+        <div id="errorContainer" style="display: none;">
+            <div class="alert alert-danger alert-custom" role="alert">
+                <strong>Error:</strong> <span id="errorMsg"></span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const form = document.getElementById('simulationForm');
+    const runBtn = document.getElementById('runBtn');
+    const runBtnText = document.getElementById('runBtnText');
+    const runBtnSpinner = document.getElementById('runBtnSpinner');
+    const resultsContainer = document.getElementById('resultsContainer');
+    const initialMessage = document.getElementById('initialMessage');
+    const errorContainer = document.getElementById('errorContainer');
+    const errorMsg = document.getElementById('errorMsg');
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Disable button and show spinner
+        runBtn.disabled = true;
+        runBtnText.style.display = 'none';
+        runBtnSpinner.style.display = 'inline-block';
+        errorContainer.style.display = 'none';
+
+        // Collect form data
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData);
+
+        try {
+            const response = await fetch('/api/simulate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || 'Simulation failed');
+            }
+
+            // Display results
+            displayResults(result);
+            resultsContainer.style.display = 'block';
+            initialMessage.style.display = 'none';
+
+        } catch (error) {
+            console.error('Error:', error);
+            errorMsg.textContent = error.message;
+            errorContainer.style.display = 'block';
+        } finally {
+            // Re-enable button and hide spinner
+            runBtn.disabled = false;
+            runBtnText.style.display = 'inline';
+            runBtnSpinner.style.display = 'none';
+        }
+    });
+
+    function displayResults(result) {
+        const stats = result.statistics;
+        
+        // Update temperature stats
+        document.getElementById('minTemp').textContent = stats.min_temp.toFixed(2) + ' °C';
+        document.getElementById('maxTemp').textContent = stats.max_temp.toFixed(2) + ' °C';
+        document.getElementById('meanTemp').textContent = stats.mean_temp.toFixed(2) + ' °C';
+        document.getElementById('stdTemp').textContent = stats.std_temp.toFixed(4) + ' °C';
+
+        // Update moisture stats
+        document.getElementById('minMoisture').textContent = stats.min_moisture.toFixed(6);
+        document.getElementById('maxMoisture').textContent = stats.max_moisture.toFixed(6);
+        document.getElementById('meanMoisture').textContent = stats.mean_moisture.toFixed(6);
+        document.getElementById('totalCondensation').textContent = stats.total_condensation.toFixed(4);
+        document.getElementById('maxCondensation').textContent = stats.max_condensation.toFixed(6);
+
+        // Update heatmap
+        const heatmapImg = document.getElementById('heatmapImg');
+        heatmapImg.src = result.heatmap_url + '?t=' + Date.now();
+        heatmapImg.style.display = 'block';
+
+        // Display stability info
+        const stabilityContainer = document.getElementById('stabilityContainer');
+        const stability = result.stability;
+        const stabilityClass = stability.is_stable ? 'stability-good' : 'stability-bad';
+        
+        stabilityContainer.innerHTML = `
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title">Numerical Stability</h5>
+                </div>
+                <div class="card-body">
+                    <div class="${stabilityClass}">
+                        ${stability.is_stable ? '✓' : '✗'} Configuration is ${stability.is_stable ? 'stable' : 'unstable'}
+                        <br>
+                        Temperature: r<sub>T</sub> = ${stability.rT.toExponential(4)} (margin: ${stability.margin_T.toFixed(6)})
+                        <br>
+                        Moisture: r<sub>W</sub> = ${stability.rW.toExponential(4)} (margin: ${stability.margin_W.toFixed(6)})
+                        <br>
+                        Threshold: 1/6 ≈ ${stability.threshold.toFixed(6)}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Compute alpha when k, rho, or Cp changes
+    function updateAlpha() {
+        const k = parseFloat(form.querySelector('[name="k"]').value) || 0.024;
+        const rho = parseFloat(form.querySelector('[name="rho"]').value) || 1.2;
+        const Cp = parseFloat(form.querySelector('[name="Cp"]').value) || 1005;
+        const alpha = k / (rho * Cp);
+        document.getElementById('alphaInput').value = alpha.toExponential(4);
+    }
+
+    // Add event listeners for alpha computation
+    ['k', 'rho', 'Cp'].forEach(name => {
+        const input = form.querySelector(`[name="${name}"]`);
+        if (input) {
+            input.addEventListener('input', updateAlpha);
+        }
+    });
+
+    // Load default parameters on page load
+    window.addEventListener('load', async () => {
+        try {
+            const response = await fetch('/api/default-params');
+            const defaults = await response.json();
+            
+            Object.keys(defaults).forEach(key => {
+                const input = form.querySelector(`[name="${key}"]`);
+                if (input && key !== 'alpha') {  // Don't set alpha directly, it's computed
+                    input.value = defaults[key];
+                }
+            });
+            
+            // Compute alpha from loaded k, rho, Cp
+            updateAlpha();
+        } catch (error) {
+            console.error('Error loading defaults:', error);
+        }
+    });
+</script>
+{% endblock %}

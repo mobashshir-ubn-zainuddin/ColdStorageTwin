@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Cold Storage Digital Twin{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="hero">
+    <h1>3D Numerical Digital Twin for Cold Storage</h1>
+    <p>Advanced thermal simulations using Finite Difference Method</p>
+    <a href="/dashboard" class="btn btn-light btn-lg" style="color: var(--primary-blue); font-weight: 700;">
+        Start Simulation →
+    </a>
+</div>
+
+<!-- Features Section -->
+<div class="section-title">Key Features</div>
+
+<div class="row g-4 mb-5">
+    <!-- Feature 1 -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🌡️</div>
+                <h5 class="card-title">Thermal Simulation</h5>
+                <p class="text-muted-custom">
+                    Solve the 3D heat equation using explicit Finite Difference Method with automatic stability verification.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature 2 -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+                <h5 class="card-title">Real-time Visualization</h5>
+                <p class="text-muted-custom">
+                    Generate interactive heatmaps and temperature profiles at any plane or cross-section.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature 3 -->
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">⚙️</div>
+                <h5 class="card-title">Flexible Configuration</h5>
+                <p class="text-muted-custom">
+                    Customize domain dimensions, material properties, boundary conditions, and time parameters.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- About Section -->
+<div class="card border-0 bg-light-blue">
+    <div class="card-body">
+        <h3 class="card-title mb-3" style="color: var(--primary-blue);">What is a Digital Twin?</h3>
+        <p>
+            A digital twin is a virtual replica of a physical system that accurately mirrors its behavior and characteristics.
+            In this application, we create a 3D numerical model of a cold storage facility to simulate temperature distribution
+            and thermal dynamics.
+        </p>
+        <p>
+            The simulation solves the three-dimensional heat equation using the Finite Difference Method, allowing you to:
+        </p>
+        <ul style="margin-top: 1rem;">
+            <li>Model complex thermal behavior in cold storage chambers</li>
+            <li>Predict temperature distribution under different conditions</li>
+            <li>Optimize cooling system placement and parameters</li>
+            <li>Validate design decisions before physical deployment</li>
+        </ul>
+    </div>
+</div>
+
+<!-- CTA Section -->
+<div style="text-align: center; margin-top: 3rem; margin-bottom: 2rem;">
+    <h2 style="color: var(--primary-blue); font-weight: 700; margin-bottom: 1rem;">Ready to simulate?</h2>
+    <p style="color: var(--text-secondary); font-size: 1.1rem; margin-bottom: 2rem;">
+        Configure parameters and run a thermal simulation to see the digital twin in action.
+    </p>
+    <a href="/dashboard" class="btn btn-primary btn-lg">
+        Go to Dashboard
+    </a>
+</div>
+{% endblock %}
