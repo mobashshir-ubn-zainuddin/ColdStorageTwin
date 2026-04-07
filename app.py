@@ -202,6 +202,12 @@ def get_default_params():
         'dt': 100.0
     })
 
+@app.route("/healthz")
+def health_check():
+    return jsonify({
+        "status": "ok",
+        "message": "Digital Twin is running"
+    }), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 10000))
