@@ -3,3 +3,6 @@ numpy
 matplotlib
 scipy
 plotly
+
+# Deployed on render mobashshir.zain@gmail.com
+# Used Uptimerobot to keep the server awake
