@@ -18,7 +18,6 @@ cold-storage-digital-twin/
 ├── app.py                  # Flask application
 ├── solver_3d.py           # Numerical solver using Finite Difference Method
 ├── visualizer.py          # Matplotlib visualization utilities
-├── pyproject.toml         # Project dependencies
 ├── templates/
 │   ├── base.html          # Base template with navigation
 │   ├── index.html         # Home page
@@ -34,27 +33,19 @@ cold-storage-digital-twin/
 
 ### Prerequisites
 - Python 3.9 or higher
-- pip and uv
+- pip
 
-### Setup
 
-1. **Initialize Python environment** (if not done):
-```bash
-cd /vercel/share/v0-project
-uv init --bare .
-```
 
 2. **Install dependencies**:
 ```bash
-uv add flask numpy matplotlib scipy
+pip install -r requirements.txt
 ```
 
 3. **Run the application**:
 ```bash
-uv run app.py
+python app.py
 ```
-
-The application will be available at `http://localhost:5000`
 
 ## Usage
 
@@ -98,29 +89,6 @@ The 3D heat equation is solved:
 - **Inlet (z=0)**: Cooling air inlet at temperature T_inlet
 - **Initial**: Uniform temperature T_initial
 
-## API Endpoints
-
-### Simulation
-- **POST /api/simulate**: Run simulation with JSON parameters
-  - Returns: Temperature statistics, stability info, and visualization URLs
-  - Example response:
-    ```json
-    {
-      "success": true,
-      "statistics": {
-        "min_temp": -25.0,
-        "max_temp": -20.0,
-        "mean_temp": -22.5,
-        "std_temp": 1.5
-      },
-      "stability": {
-        "is_stable": true,
-        "courant_number": 0.166667,
-        "threshold": 0.166667
-      },
-      "heatmap_url": "/static/heatmap_current.png"
-    }
-    ```
 
 ### Configuration
 - **GET /api/default-params**: Get default simulation parameters
