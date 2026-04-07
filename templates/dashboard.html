@@ -16,24 +16,36 @@
     }
 
     .stat-card {
-        background: white;
-        border-radius: 12px;
-        padding: 1.5rem;
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 10px;
+        padding: 1.25rem;
         text-align: center;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        margin-bottom: 1rem;
+        transition: all 0.3s ease;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .stat-card:hover {
+        background: white;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        transform: translateY(-2px);
     }
 
     .stat-value {
-        font-size: 2rem;
+        font-size: 1.5rem;
         font-weight: 700;
         color: var(--primary-blue);
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
     }
 
     .stat-label {
         color: var(--text-secondary);
-        font-size: 0.9rem;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
     .stability-indicator {
@@ -75,19 +87,37 @@
 
     .param-group {
         background: white;
-        padding: 1.5rem;
+        padding: 1.25rem;
         border-radius: 8px;
-        margin-bottom: 1.5rem;
-        border-left: 4px solid var(--accent-blue);
+        margin-bottom: 1rem;
+        border-top: 4px solid var(--accent-blue);
+        height: 100%;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
     }
 
-    .param-group h6 {
-        color: var(--primary-blue);
-        font-weight: 700;
-        margin-bottom: 1rem;
-        text-transform: uppercase;
-        font-size: 0.85rem;
-        letter-spacing: 1px;
+    .param-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .simulation-controls {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        align-items: center;
+    }
+
+    .results-container {
+        display: flex;
+        flex-direction: column;
+        gap: 2rem;
     }
 
     .viz-tabs {
@@ -180,265 +210,259 @@
 {% endblock %}
 
 {% block content %}
-<h1 class="section-title mb-5">Simulation Dashboard</h1>
+<h1 class="section-title mb-4">Simulation Dashboard</h1>
 
-<div class="row">
-    <!-- Input Section -->
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title">Simulation Parameters</h5>
+<div class="alert alert-light border-0 shadow-sm mb-4">
+    <h5 class="mb-0 text-primary fw-bold">
+        <i class="bi bi-sliders me-2"></i> Configure Simulation Parameters
+    </h5>
+</div>
+
+<form id="simulationForm">
+    <div class="param-grid">
+        <!-- Domain Parameters -->
+        <div class="param-group">
+            <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Domain (m)</h6>
+            <div class="mb-3">
+                <label class="form-label">Length X</label>
+                <input type="number" class="form-control" name="Lx" value="10.0" step="0.1" min="1">
             </div>
-            <div class="card-body">
-                <form id="simulationForm">
-                    <!-- Domain Parameters -->
-                    <div class="param-group">
-                        <h6>Domain (m)</h6>
-                        <div class="mb-3">
-                            <label class="form-label">Length X</label>
-                            <input type="number" class="form-control" name="Lx" value="10.0" step="0.1" min="1">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Length Y</label>
-                            <input type="number" class="form-control" name="Ly" value="10.0" step="0.1" min="1">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Length Z</label>
-                            <input type="number" class="form-control" name="Lz" value="10.0" step="0.1" min="1">
-                        </div>
-                    </div>
+            <div class="mb-3">
+                <label class="form-label">Length Y</label>
+                <input type="number" class="form-control" name="Ly" value="10.0" step="0.1" min="1">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Length Z</label>
+                <input type="number" class="form-control" name="Lz" value="10.0" step="0.1" min="1">
+            </div>
+        </div>
 
-                    <!-- Grid Parameters -->
-                    <div class="param-group">
-                        <h6>Grid Resolution</h6>
-                        <div class="mb-3">
-                            <label class="form-label">Points X</label>
-                            <input type="number" class="form-control" name="nx" value="10" min="3" max="50">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Points Y</label>
-                            <input type="number" class="form-control" name="ny" value="10" min="3" max="50">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Points Z</label>
-                            <input type="number" class="form-control" name="nz" value="10" min="3" max="50">
-                        </div>
-                    </div>
+        <!-- Grid Parameters -->
+        <div class="param-group">
+            <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Grid Resolution</h6>
+            <div class="mb-3">
+                <label class="form-label">Points X</label>
+                <input type="number" class="form-control" name="nx" value="10" min="3" max="50">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Points Y</label>
+                <input type="number" class="form-control" name="ny" value="10" min="3" max="50">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Points Z</label>
+                <input type="number" class="form-control" name="nz" value="10" min="3" max="50">
+            </div>
+        </div>
 
-                    <!-- Material Properties -->
-                    <div class="param-group">
-                        <h6>Thermal Properties</h6>
-                        <div class="mb-3">
-                            <label class="form-label">Thermal Conductivity k (W/m·K)</label>
-                            <input type="number" class="form-control" name="k" value="0.024" step="0.001" min="0.001">
-                            <small class="text-muted-custom">Standard (Air): 0.024</small>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Density ρ (kg/m³)</label>
-                            <input type="number" class="form-control" name="rho" value="1.2" step="0.1" min="0.1">
-                            <small class="text-muted-custom">Standard (Air): 1.2</small>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Specific Heat Cp (J/kg·K)</label>
-                            <input type="number" class="form-control" name="Cp" value="1005" step="1" min="1">
-                            <small class="text-muted-custom">Standard (Air): 1005</small>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Thermal Diffusivity α (m²/s)</label>
-                            <input type="number" class="form-control" name="alpha" id="alphaInput" value="1.99e-5" step="1e-7" min="1e-10" readonly>
-                            <small class="text-muted-custom">Standard: ~2.0×10⁻⁵ m²/s</small>
-                        </div>
-                    </div>
+        <!-- Material Properties -->
+        <div class="param-group">
+            <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Thermal Properties</h6>
+            <div class="mb-3">
+                <label class="form-label">Thermal Conductivity k (W/m·K)</label>
+                <input type="number" class="form-control" name="k" value="0.024" step="0.001" min="0.001">
+                <small class="text-muted-custom">Standard (Air): 0.024</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Density ρ (kg/m³)</label>
+                <input type="number" class="form-control" name="rho" value="1.2" step="0.1" min="0.1">
+                <small class="text-muted-custom">Standard (Air): 1.2</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Specific Heat Cp (J/kg·K)</label>
+                <input type="number" class="form-control" name="Cp" value="1005" step="1" min="1">
+                <small class="text-muted-custom">Standard (Air): 1005</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Thermal Diffusivity α (m²/s)</label>
+                <input type="number" class="form-control" name="alpha" id="alphaInput" value="1.99e-5" step="1e-7" min="1e-10" readonly>
+                <small class="text-muted-custom">Standard: ~2.0×10⁻⁵ m²/s</small>
+            </div>
+        </div>
 
-                    <!-- Moisture Properties -->
-                    <div class="param-group">
-                        <h6>Moisture Properties</h6>
-                        <div class="mb-3">
-                            <label class="form-label">Latent Heat Lv (J/kg)</label>
-                            <input type="number" class="form-control" name="Lv" value="2.26e6" step="1e4" min="1e5">
-                            <small class="text-muted-custom">Water: 2.26×10⁶ J/kg</small>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Moisture Diffusivity Dm (m²/s)</label>
-                            <input type="number" class="form-control" name="Dm" value="2.2e-5" step="1e-6" min="1e-10">
-                            <small class="text-muted-custom">Standard: 2.2×10⁻⁵ m²/s</small>
-                        </div>
-                    </div>
+        <!-- Moisture Properties -->
+        <div class="param-group">
+            <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Moisture Properties</h6>
+            <div class="mb-3">
+                <label class="form-label">Latent Heat Lv (J/kg)</label>
+                <input type="number" class="form-control" name="Lv" value="2.26e6" step="1e4" min="1e5">
+                <small class="text-muted-custom">Water: 2.26×10⁶ J/kg</small>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Moisture Diffusivity Dm (m²/s)</label>
+                <input type="number" class="form-control" name="Dm" value="2.2e-5" step="1e-6" min="1e-10">
+                <small class="text-muted-custom">Standard: 2.2×10⁻⁵ m²/s</small>
+            </div>
+        </div>
 
-                    <!-- Temperature Conditions -->
-                    <div class="param-group">
-                        <h6>Temperature (°C)</h6>
-                        <div class="mb-3">
-                            <label class="form-label">Initial</label>
-                            <input type="number" class="form-control" name="T_initial" value="-20.0" step="0.1">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Wall</label>
-                            <input type="number" class="form-control" name="T_wall" value="-20.0" step="0.1">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Inlet</label>
-                            <input type="number" class="form-control" name="T_inlet" value="-25.0" step="0.1">
-                        </div>
-                    </div>
+        <!-- Temperature Conditions -->
+        <div class="param-group">
+            <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Temperature (°C)</h6>
+            <div class="mb-3">
+                <label class="form-label">Initial</label>
+                <input type="number" class="form-control" name="T_initial" value="-20.0" step="0.1">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Wall</label>
+                <input type="number" class="form-control" name="T_wall" value="-20.0" step="0.1">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Inlet</label>
+                <input type="number" class="form-control" name="T_inlet" value="-25.0" step="0.1">
+            </div>
+        </div>
 
-                    <!-- Moisture Conditions -->
-                    <div class="param-group">
-                        <h6>Moisture (Fraction)</h6>
-                        <div class="mb-3">
-                            <label class="form-label">Initial w₀</label>
-                            <input type="number" class="form-control" name="W_initial" value="0.01" step="0.001" min="0" max="0.1">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Wall</label>
-                            <input type="number" class="form-control" name="W_wall" value="0.005" step="0.001" min="0" max="0.1">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Inlet</label>
-                            <input type="number" class="form-control" name="W_inlet" value="0.008" step="0.001" min="0" max="0.1">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Ambient RH (0-1)</label>
-                            <input type="number" class="form-control" name="RH_ambient" value="0.8" step="0.05" min="0" max="1">
-                        </div>
-                    </div>
+        <!-- Moisture Conditions -->
+        <div class="param-group">
+            <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Moisture (Fraction)</h6>
+            <div class="mb-3">
+                <label class="form-label">Initial w₀</label>
+                <input type="number" class="form-control" name="W_initial" value="0.01" step="0.001" min="0" max="0.1">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Wall</label>
+                <input type="number" class="form-control" name="W_wall" value="0.005" step="0.001" min="0" max="0.1">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Inlet</label>
+                <input type="number" class="form-control" name="W_inlet" value="0.008" step="0.001" min="0" max="0.1">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Ambient RH (0-1)</label>
+                <input type="number" class="form-control" name="RH_ambient" value="0.8" step="0.05" min="0" max="1">
+            </div>
+        </div>
 
-                    <!-- Time Parameters -->
-                    <div class="param-group">
-                        <h6>Time Parameters</h6>
-                        <div class="mb-3">
-                            <label class="form-label">Time Steps</label>
-                            <input type="number" class="form-control" name="time_steps" value="10" min="1" max="100">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Δt (seconds)</label>
-                            <input type="number" class="form-control" name="dt" value="100.0" step="10" min="10">
-                        </div>
-                    </div>
-
-                    <!-- Buttons -->
-                    <div class="d-grid gap-2 mt-4">
-                        <button type="submit" class="btn btn-primary btn-lg" id="runBtn">
-                            <span id="runBtnText">Run Simulation</span>
-                            <span id="runBtnSpinner" style="display: none;" class="loading ms-2"></span>
-                        </button>
-                        <button type="reset" class="btn btn-secondary">Reset to Defaults</button>
-                    </div>
-                </form>
+        <!-- Time Parameters -->
+        <div class="param-group">
+            <h6 class="mb-3 text-primary fw-bold text-uppercase" style="font-size: 0.85rem; letter-spacing: 1px;">Time Parameters</h6>
+            <div class="mb-3">
+                <label class="form-label">Time Steps</label>
+                <input type="number" class="form-control" name="time_steps" value="10" min="1" max="100">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Δt (seconds)</label>
+                <input type="number" class="form-control" name="dt" value="100.0" step="10" min="10">
             </div>
         </div>
     </div>
 
-    <!-- Results Section -->
-    <div class="col-lg-8">
-        <div id="resultsContainer" style="display: none;">
-            <!-- Stability Indicator -->
-            <div id="stabilityContainer"></div>
+    <!-- Simulation Controls -->
+    <div class="simulation-controls">
+        <button type="submit" class="btn btn-primary btn-lg px-5" id="runBtn">
+            <span id="runBtnText">Run Simulation</span>
+            <span id="runBtnSpinner" style="display: none;" class="loading ms-2"></span>
+        </button>
+        <button type="reset" class="btn btn-outline-secondary px-4">Reset to Defaults</button>
+    </div>
+</form>
 
-            <!-- Statistics -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title">Temperature Statistics</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="stat-card">
-                                <div class="stat-value" id="minTemp">-</div>
-                                <div class="stat-label">Minimum Temperature</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="stat-card">
-                                <div class="stat-value" id="maxTemp">-</div>
-                                <div class="stat-label">Maximum Temperature</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="stat-card">
-                                <div class="stat-value" id="meanTemp">-</div>
-                                <div class="stat-label">Mean Temperature</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="stat-card">
-                                <div class="stat-value" id="stdTemp">-</div>
-                                <div class="stat-label">Standard Deviation</div>
-                            </div>
-                        </div>
+<!-- Results Section -->
+<div id="resultsContainer" class="results-container" style="display: none;">
+    <!-- Stability Indicator -->
+    <div id="stabilityContainer"></div>
+
+    <!-- Statistics -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title">Temperature Statistics</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="minTemp">-</div>
+                        <div class="stat-label">Minimum Temperature</div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Moisture Statistics -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title">Moisture Statistics</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-4">
-                            <div class="stat-card">
-                                <div class="stat-value" id="minMoisture">-</div>
-                                <div class="stat-label">Minimum Moisture</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="stat-card">
-                                <div class="stat-value" id="maxMoisture">-</div>
-                                <div class="stat-label">Maximum Moisture</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="stat-card">
-                                <div class="stat-value" id="meanMoisture">-</div>
-                                <div class="stat-label">Mean Moisture</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="stat-card">
-                                <div class="stat-value" id="totalCondensation">-</div>
-                                <div class="stat-label">Total Condensation</div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="stat-card">
-                                <div class="stat-value" id="maxCondensation">-</div>
-                                <div class="stat-label">Max Condensation Rate</div>
-                            </div>
-                        </div>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="maxTemp">-</div>
+                        <div class="stat-label">Maximum Temperature</div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Heatmap -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5 class="card-title">Temperature Distribution (Middle Plane)</h5>
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="meanTemp">-</div>
+                        <div class="stat-label">Mean Temperature</div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="heatmap-container">
-                        <img id="heatmapImg" src="" alt="Temperature Heatmap" style="display: none;">
+                <div class="col-md-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stdTemp">-</div>
+                        <div class="stat-label">Standard Deviation</div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-        <!-- Initial Message -->
-        <div id="initialMessage" class="alert alert-info-custom">
-            <p style="margin: 0;">
-                <strong>Welcome to the Dashboard</strong><br>
-                Configure the simulation parameters on the left and click "Run Simulation" to generate results.
-                The solver will compute the 3D temperature distribution and display visualizations here.
-            </p>
+    <!-- Moisture Statistics -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title">Moisture Statistics</h5>
         </div>
-
-        <!-- Error Message -->
-        <div id="errorContainer" style="display: none;">
-            <div class="alert alert-danger alert-custom" role="alert">
-                <strong>Error:</strong> <span id="errorMsg"></span>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-value" id="minMoisture">-</div>
+                        <div class="stat-label">Minimum Moisture</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-value" id="maxMoisture">-</div>
+                        <div class="stat-label">Maximum Moisture</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <div class="stat-value" id="meanMoisture">-</div>
+                        <div class="stat-label">Mean Moisture</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalCondensation">-</div>
+                        <div class="stat-label">Total Condensation</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="stat-card">
+                        <div class="stat-value" id="maxCondensation">-</div>
+                        <div class="stat-label">Max Condensation Rate</div>
+                    </div>
+                </div>
             </div>
         </div>
+    </div>
+
+    <!-- Heatmap -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="card-title">Temperature Distribution (Middle Plane)</h5>
+        </div>
+        <div class="card-body">
+            <div class="heatmap-container">
+                <img id="heatmapImg" src="" alt="Temperature Heatmap" style="display: none;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Initial Message -->
+<div id="initialMessage" class="alert alert-info-custom text-center py-4 mt-4">
+    <p style="margin: 0;">
+        <strong>Welcome to the Dashboard</strong><br>
+        Configure the simulation parameters above and click "Run Simulation" to generate results.
+        The solver will compute the 3D temperature distribution and display visualizations here.
+    </p>
+</div>
+
+<!-- Error Message -->
+<div id="errorContainer" style="display: none;" class="mt-4">
+    <div class="alert alert-danger alert-custom" role="alert">
+        <strong>Error:</strong> <span id="errorMsg"></span>
     </div>
 </div>
 {% endblock %}
