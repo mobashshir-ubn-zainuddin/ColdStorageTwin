@@ -337,54 +337,6 @@
     </div>
 </div>
 
-<!-- Implementation Details -->
-<div class="card mb-4">
-    <div class="card-header">
-        <h5 class="card-title">Implementation Algorithm</h5>
-    </div>
-    <div class="card-body">
-        <h6 style="color: var(--primary-blue); margin-bottom: 1rem;">Time Stepping Loop (Coupled System)</h6>
-        <div class="code-box">
-<pre><code>for each time step n = 0 to N_steps:
-    # Check stability for BOTH fields
-    if r_T > 1/6 or r_W > 1/6:
-        raise StabilityError("Configuration is unstable")
-    
-    # STEP 1: Update moisture field (diffusion only)
-    for interior points (i,j,k):
-        W_new[i,j,k] = W[i,j,k] + r_W * (
-            W[i+1,j,k] + W[i-1,j,k] +
-            W[i,j+1,k] + W[i,j-1,k] +
-            W[i,j,k+1] + W[i,j,k-1] - 6*W[i,j,k]
-        )
-    
-    # STEP 2: Update temperature (diffusion + latent heat)
-    for interior points (i,j,k):
-        laplacian_T = (T[i+1,j,k] + T[i-1,j,k] +
-                       T[i,j+1,k] + T[i,j-1,k] +
-                       T[i,j,k+1] + T[i,j,k-1] - 6*T[i,j,k])
-        
-        T_new[i,j,k] = T[i,j,k] + r_T * laplacian_T
-                     + (Lv / (ρ*Cp)) * (W_new[i,j,k] - W[i,j,k])
-    
-    # STEP 3: Apply condensation if moisture exceeds saturation
-    W_sat = calculate_saturation_moisture(T_new)
-    where W_new > W_sat:
-        excess = W_new - W_sat
-        W_new = W_sat
-        T_new += (Lv / (ρ*Cp)) * excess  # Latent heat release
-    
-    # STEP 4: Apply boundary conditions
-    T_new[boundaries] = T_wall or T_inlet
-    W_new[boundaries] = W_wall or W_inlet
-    
-    # Advance to next time step
-    T, W = T_new, W_new
-</code></pre>
-        </div>
-    </div>
-</div>
-
 <!-- Physical Parameters -->
 <div class="card mb-4">
     <div class="card-header">
