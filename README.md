@@ -129,17 +129,9 @@ The application includes:
 
 Educational and research use.
 
-## Author
-
-Created as a demonstration of:
-- Finite Difference Method for solving PDEs
-- Digital twin technology
-- Python scientific computing (NumPy, Matplotlib)
-- Flask web application development
-
 ## Support
 
-For issues or questions:
+For fetails:
 1. Check the Numerical Model page for mathematical details
 2. Review simulation parameters for physical feasibility
 3. Verify stability conditions are met
