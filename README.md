@@ -131,7 +131,7 @@ Educational and research use.
 
 ## Support
 
-For fetails:
+For details:
 1. Check the Numerical Model page for mathematical details
 2. Review simulation parameters for physical feasibility
 3. Verify stability conditions are met
