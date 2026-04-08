@@ -21,8 +21,5 @@ Thumbs.db
 # VS Code
 .vscode/
 
-# Test files (optional)
-test_*.py
-
 # Temporary images (optional)
 *.png

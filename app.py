@@ -8,6 +8,8 @@ from solver_3d import create_solver_from_params
 from visualizer import (
     plot_midplane_heatmap, 
     plot_temperature_profile,
+    plot_3d_field,
+    plot_3d_field_volumetric,
     plot_3d_volume_scatter,
     plot_3d_isosurface,
     plot_3d_sliced_views,
@@ -134,12 +136,49 @@ def simulate():
         
         # Generate visualization
         temp_field = solver.get_temperature_field()
+        moisture_field = solver.get_moisture_field()
+        
+        # Calculate heat field (enthalpy/energy density in J/m3)
+        # Sensible heat = rho * Cp * T
+        heat_field = rho * Cp * temp_field
         
         # 2D visualizations
         plot_path = plot_midplane_heatmap(temp_field, config_dict, stats)
         profile_path = plot_temperature_profile(temp_field, config_dict)
         
-        # 3D interactive visualizations removed as requested
+        # 3D visualizations
+        temp_3d_path = plot_3d_field(
+            temp_field, config_dict, 
+            'Temperature Distribution', 'Temperature', '°C', 
+            colorscale='diverging', output_path='static/temp_3d.html'
+        )
+        moisture_3d_path = plot_3d_field(
+            moisture_field, config_dict, 
+            'Moisture Distribution', 'Moisture', 'kg/kg', 
+            colorscale='GnBu', output_path='static/moisture_3d.html'
+        )
+        heat_3d_path = plot_3d_field(
+            heat_field, config_dict, 
+            'Heat Distribution', 'Heat', 'J/m³', 
+            colorscale='diverging', output_path='static/heat_3d.html'
+        )
+        
+        # Continuous (Volumetric) visualizations
+        temp_vol_path = plot_3d_field_volumetric(
+            temp_field, config_dict, 
+            'Temperature Distribution', 'Temperature', '°C', 
+            colorscale='diverging', output_path='static/temp_vol.html'
+        )
+        moisture_vol_path = plot_3d_field_volumetric(
+            moisture_field, config_dict, 
+            'Moisture Distribution', 'Moisture', 'kg/kg', 
+            colorscale='GnBu', output_path='static/moisture_vol.html'
+        )
+        heat_vol_path = plot_3d_field_volumetric(
+            heat_field, config_dict, 
+            'Heat Distribution', 'Heat', 'J/m³', 
+            colorscale='diverging', output_path='static/heat_vol.html'
+        )
         
         return jsonify({
             'success': True,
@@ -154,6 +193,12 @@ def simulate():
             },
             'heatmap_url': '/static/heatmap_current.png',
             'profile_url': '/static/profile.png',
+            'temp_3d_url': '/static/temp_3d.html',
+            'moisture_3d_url': '/static/moisture_3d.html',
+            'heat_3d_url': '/static/heat_3d.html',
+            'temp_vol_url': '/static/temp_vol.html',
+            'moisture_vol_url': '/static/moisture_vol.html',
+            'heat_vol_url': '/static/heat_vol.html',
             'simulation_time': time_steps * dt
         })
     

@@ -5,6 +5,7 @@ Includes interactive 3D visualization with rotation capabilities
 
 import numpy as np
 import matplotlib.pyplot as plt
+plt.switch_backend('Agg')
 from matplotlib.colors import LinearSegmentedColormap
 import plotly.graph_objects as go
 import plotly.express as px
@@ -492,6 +493,187 @@ def plot_3d_sliced_views(
     # Save as HTML
     fig.write_html(output_path)
     
+    return output_path
+
+
+def get_diverging_colorscale():
+    """
+    Enhanced diverging colorscale:
+    - -ve: Cooler (violet -> indigo -> blue) fading to white at 0
+    - +ve: Warmer (yellow -> orange -> red) fading to white at 0
+    """
+    return [
+        [0.0, '#4b0082'],   # Violet (-max)
+        [0.15, '#0000ff'],  # Blue
+        [0.35, '#add8e6'],  # Light Blue
+        [0.5, '#ffffff'],   # White (0)
+        [0.65, '#ffff00'],  # Yellow
+        [0.85, '#ffa500'],  # Orange
+        [1.0, '#ff0000']    # Red (+max)
+    ]
+
+
+def plot_3d_field(
+    field: np.ndarray,
+    config_dict: dict,
+    title: str,
+    label: str,
+    unit: str,
+    colorscale: str = 'Blues_r',
+    output_path: str = 'static/3d_field.html',
+    decimation: int = 1
+) -> str:
+    """
+    Generalized 3D visualization for any field (temperature, moisture, heat)
+    """
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # Decimate for performance
+    if decimation > 1:
+        field_decimated = field[::decimation, ::decimation, ::decimation]
+    else:
+        field_decimated = field
+    
+    # Create coordinate grids
+    nx, ny, nz = field_decimated.shape
+    x = np.linspace(0, config_dict['Lx'], nx)
+    y = np.linspace(0, config_dict['Ly'], ny)
+    z = np.linspace(0, config_dict['Lz'], nz)
+    
+    # Create meshgrid
+    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+    
+    # Flatten arrays
+    x_flat = X.flatten()
+    y_flat = Y.flatten()
+    z_flat = Z.flatten()
+    val_flat = field_decimated.flatten()
+    
+    # Use custom colorscale if requested
+    if colorscale == 'diverging':
+        c_scale = get_diverging_colorscale()
+        # Symmetric range around 0
+        abs_max = max(abs(val_flat.min()), abs(val_flat.max()), 1e-10)
+        c_min, c_max = -abs_max, abs_max
+    else:
+        c_scale = colorscale
+        c_min, c_max = val_flat.min(), val_flat.max()
+
+    # Create scatter plot
+    fig = go.Figure(data=[go.Scatter3d(
+        x=x_flat,
+        y=y_flat,
+        z=z_flat,
+        mode='markers',
+        marker=dict(
+            size=6,
+            color=val_flat,
+            colorscale=c_scale,
+            cmin=c_min,
+            cmax=c_max,
+            cauto=False, # Crucial to respect cmin/cmax
+            showscale=True,
+            colorbar=dict(
+                title=f"{label}<br>({unit})",
+                thickness=15,
+                len=0.7,
+                x=1.02
+            ),
+            opacity=0.8,
+            line=dict(width=0.5, color='rgba(50, 50, 50, 0.3)')
+        ),
+        text=[f"{label}: {v:.4f}{unit}<br>X: {x:.2f}m<br>Y: {y:.2f}m<br>Z: {z:.2f}m" 
+              for v, x, y, z in zip(val_flat, x_flat, y_flat, z_flat)],
+        hovertemplate='%{text}<extra></extra>',
+        name=label
+    )])
+    
+    # Update layout
+    fig.update_layout(
+        title=dict(text=f'<b>{title} (Discrete Points)</b>', x=0.5, xanchor='center'),
+        scene=dict(
+            xaxis_title='X (m)', yaxis_title='Y (m)', zaxis_title='Z (m)',
+            aspectmode='cube'
+        ),
+        width=1000, height=500, margin=dict(l=0, r=0, b=0, t=80) # Reduced size for faster loading
+    )
+    
+    # Save as HTML with compression if possible (Plotly doesn't directly, but smaller width helps)
+    fig.write_html(output_path, include_plotlyjs='cdn') # Use CDN to reduce file size
+    
+    return output_path
+
+
+def plot_3d_field_volumetric(
+    field: np.ndarray,
+    config_dict: dict,
+    title: str,
+    label: str,
+    unit: str,
+    colorscale: str = 'Blues_r',
+    output_path: str = 'static/3d_field_volumetric.html',
+    decimation: int = 1
+) -> str:
+    """
+    Continuous 3D Volumetric visualization (Volume Rendering) with coordinate tooltips
+    """
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # Decimate for performance
+    if decimation > 1:
+        field_decimated = field[::decimation, ::decimation, ::decimation]
+    else:
+        field_decimated = field
+
+    nx, ny, nz = field_decimated.shape
+    x = np.linspace(0, config_dict['Lx'], nx)
+    y = np.linspace(0, config_dict['Ly'], ny)
+    z = np.linspace(0, config_dict['Lz'], nz)
+    
+    X, Y, Z = np.meshgrid(x, y, z, indexing='ij')
+    
+    # Handling colorscale and range
+    val_flat = field_decimated.flatten()
+    if colorscale == 'diverging':
+        c_scale = get_diverging_colorscale()
+        abs_max = max(abs(val_flat.min()), abs(val_flat.max()), 1e-10)
+        c_min, c_max = -abs_max, abs_max
+    else:
+        c_scale = colorscale
+        c_min, c_max = val_flat.min(), val_flat.max()
+
+    fig = go.Figure(data=go.Volume(
+        x=X.flatten(),
+        y=Y.flatten(),
+        z=Z.flatten(),
+        value=val_flat,
+        isomin=c_min,
+        isomax=c_max,
+        cmin=c_min, # Crucial for color mapping
+        cmax=c_max,
+        cauto=False,
+        opacity=0.15,
+        surface_count=25, # Reduced for faster rendering/loading
+        colorscale=c_scale,
+        colorbar=dict(title=f"{label}<br>({unit})", thickness=15, len=0.7),
+        hovertemplate=(
+            f'{label}: %{{value:.4f}}{unit}<br>' +
+            'X: %{x:.2f}m<br>' +
+            'Y: %{y:.2f}m<br>' +
+            'Z: %{z:.2f}m<extra></extra>'
+        )
+    ))
+    
+    fig.update_layout(
+        title=dict(text=f'<b>{title} (Continuous)</b>', x=0.5, xanchor='center'),
+        scene=dict(
+            xaxis_title='X (m)', yaxis_title='Y (m)', zaxis_title='Z (m)',
+            aspectmode='cube'
+        ),
+        width=1000, height=500, margin=dict(l=0, r=0, b=0, t=80) # Reduced size for faster loading
+    )
+    
+    fig.write_html(output_path, include_plotlyjs='cdn') # Use CDN to reduce file size
     return output_path
 
 

@@ -437,25 +437,76 @@
         </div>
     </div>
 
-    <!-- Heatmap -->
-    <div class="card">
-        <div class="card-header">
-            <h5 class="card-title">Temperature Distribution (Middle Plane)</h5>
+    <!-- 3D Visualizations -->
+    <div class="results-container">
+        <!-- Temperature 3D Card -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">1. Temperature Distribution (3D)</h5>
+                <div class="d-flex align-items-center">
+                    <select class="form-select form-select-sm view-mode-select me-3" data-target="temp" style="width: auto;">
+                        <option value="volumetric" selected>Continuous</option>
+                        <option value="scatter">Discrete Points</option>
+                    </select>
+                    <small class="text-white-50">Rotate: Drag | Zoom: Scroll</small>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="ratio ratio-21x9 border-0">
+                    <iframe id="temp3dFrame" src="" class="border-0" title="3D Temperature Distribution"></iframe>
+                </div>
+            </div>
         </div>
-        <div class="card-body">
-            <div class="heatmap-container">
-                <img id="heatmapImg" src="" alt="Temperature Heatmap" style="display: none;">
+
+        <!-- Moisture 3D Card -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">2. Moisture Distribution (3D)</h5>
+                <div class="d-flex align-items-center">
+                    <select class="form-select form-select-sm view-mode-select me-3" data-target="moisture" style="width: auto;">
+                        <option value="volumetric" selected>Continuous</option>
+                        <option value="scatter">Discrete Points</option>
+                    </select>
+                    <small class="text-white-50">Rotate: Drag | Zoom: Scroll</small>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="ratio ratio-21x9 border-0">
+                    <iframe id="moisture3dFrame" src="" class="border-0" title="3D Moisture Distribution"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <!-- Heat 3D Card -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">3. Heat Distribution (3D)</h5>
+                <div class="d-flex align-items-center">
+                    <select class="form-select form-select-sm view-mode-select me-3" data-target="heat" style="width: auto;">
+                        <option value="volumetric" selected>Continuous</option>
+                        <option value="scatter">Discrete Points</option>
+                    </select>
+                    <small class="text-white-50">Rotate: Drag | Zoom: Scroll</small>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="ratio ratio-21x9 border-0">
+                    <iframe id="heat3dFrame" src="" class="border-0" title="3D Heat Distribution"></iframe>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Initial Message -->
-<div id="initialMessage" class="alert alert-info-custom text-center py-4 mt-4">
-    <p style="margin: 0;">
-        <strong>Welcome to the Dashboard</strong><br>
-        Configure the simulation parameters above and click "Run Simulation" to generate results.
-        The solver will compute the 3D temperature distribution and display visualizations here.
+<div id="initialMessage" class="alert alert-info-custom text-center py-5 mt-4">
+    <div class="mb-3">
+        <i class="bi bi-box-seam display-1"></i>
+    </div>
+    <h4 class="fw-bold">Welcome to the 3D Digital Twin Dashboard</h4>
+    <p class="lead mb-0">
+        Configure the simulation parameters above and click <strong>"Run Simulation"</strong>.<br>
+        The solver will compute the 3D fields and generate interactive 3D visualizations for temperature, moisture, and heat.
     </p>
 </div>
 
@@ -478,16 +529,50 @@
     const errorContainer = document.getElementById('errorContainer');
     const errorMsg = document.getElementById('errorMsg');
 
+    let lastResult = null;
+    const viewModeSelects = document.querySelectorAll('.view-mode-select');
+
+    viewModeSelects.forEach(select => {
+        select.addEventListener('change', () => {
+            if (lastResult) {
+                const target = select.getAttribute('data-target');
+                updateSingleFrame(target, lastResult);
+            }
+        });
+    });
+
+    function updateSingleFrame(target, result) {
+        const select = document.querySelector(`.view-mode-select[data-target="${target}"]`);
+        const mode = select.value;
+        const timestamp = '?t=' + Date.now();
+        const frameId = `${target}3dFrame`;
+        
+        if (mode === 'volumetric') {
+            document.getElementById(frameId).src = result[`${target}_vol_url`] + timestamp;
+        } else {
+            document.getElementById(frameId).src = result[`${target}_3d_url`] + timestamp;
+        }
+    }
+
+    function updateVisualizationFrames(result) {
+        ['temp', 'moisture', 'heat'].forEach(target => {
+            updateSingleFrame(target, result);
+        });
+    }
+
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        // Hide initial message, results, and error container
+        initialMessage.style.display = 'none';
+        resultsContainer.style.display = 'none';
+        errorContainer.style.display = 'none';
         
         // Disable button and show spinner
         runBtn.disabled = true;
         runBtnText.style.display = 'none';
         runBtnSpinner.style.display = 'inline-block';
-        errorContainer.style.display = 'none';
 
-        // Collect form data
         const formData = new FormData(form);
         const data = Object.fromEntries(formData);
 
@@ -502,12 +587,13 @@
 
             const result = await response.json();
 
-            if (!result.success) {
+            if (!response.ok) {
                 throw new Error(result.error || 'Simulation failed');
             }
 
-            // Display results
+            lastResult = result;
             displayResults(result);
+            updateVisualizationFrames(result);
             resultsContainer.style.display = 'block';
             initialMessage.style.display = 'none';
 
@@ -533,16 +619,11 @@
         document.getElementById('stdTemp').textContent = stats.std_temp.toFixed(4) + ' °C';
 
         // Update moisture stats
-        document.getElementById('minMoisture').textContent = stats.min_moisture.toFixed(6);
-        document.getElementById('maxMoisture').textContent = stats.max_moisture.toFixed(6);
-        document.getElementById('meanMoisture').textContent = stats.mean_moisture.toFixed(6);
-        document.getElementById('totalCondensation').textContent = stats.total_condensation.toFixed(4);
-        document.getElementById('maxCondensation').textContent = stats.max_condensation.toFixed(6);
-
-        // Update heatmap
-        const heatmapImg = document.getElementById('heatmapImg');
-        heatmapImg.src = result.heatmap_url + '?t=' + Date.now();
-        heatmapImg.style.display = 'block';
+        document.getElementById('minMoisture').textContent = stats.min_moisture.toFixed(6) + ' kg/kg';
+        document.getElementById('maxMoisture').textContent = stats.max_moisture.toFixed(6) + ' kg/kg';
+        document.getElementById('meanMoisture').textContent = stats.mean_moisture.toFixed(6) + ' kg/kg';
+        document.getElementById('totalCondensation').textContent = stats.total_condensation.toFixed(4) + ' kg/kg';
+        document.getElementById('maxCondensation').textContent = stats.max_condensation.toFixed(6) + ' kg/kg/s';
 
         // Display stability info
         const stabilityContainer = document.getElementById('stabilityContainer');
