@@ -593,13 +593,22 @@ def plot_3d_field(
         title=dict(text=f'<b>{title} (Discrete Points)</b>', x=0.5, xanchor='center'),
         scene=dict(
             xaxis_title='X (m)', yaxis_title='Y (m)', zaxis_title='Z (m)',
-            aspectmode='cube'
+            aspectmode='cube',
+            dragmode='turntable' # Set turntable as default for better control
         ),
         width=1000, height=500, margin=dict(l=0, r=0, b=0, t=80) # Reduced size for faster loading
     )
     
-    # Save as HTML with compression if possible (Plotly doesn't directly, but smaller width helps)
-    fig.write_html(output_path, include_plotlyjs='cdn') # Use CDN to reduce file size
+    # Custom config to remove Plotly logo and ensure modebar buttons work correctly
+    config = {
+        'displaylogo': False,
+        'modeBarButtonsToRemove': [], # Keep all standard buttons
+        'scrollZoom': True,
+        'responsive': True
+    }
+    
+    # Save as HTML with compression and custom config
+    fig.write_html(output_path, include_plotlyjs='cdn', config=config)
     
     return output_path
 
@@ -668,12 +677,21 @@ def plot_3d_field_volumetric(
         title=dict(text=f'<b>{title} (Continuous)</b>', x=0.5, xanchor='center'),
         scene=dict(
             xaxis_title='X (m)', yaxis_title='Y (m)', zaxis_title='Z (m)',
-            aspectmode='cube'
+            aspectmode='cube',
+            dragmode='turntable' # Set turntable as default for better control
         ),
         width=1000, height=500, margin=dict(l=0, r=0, b=0, t=80) # Reduced size for faster loading
     )
     
-    fig.write_html(output_path, include_plotlyjs='cdn') # Use CDN to reduce file size
+    # Custom config to remove Plotly logo and ensure modebar buttons work correctly
+    config = {
+        'displaylogo': False,
+        'modeBarButtonsToRemove': [],
+        'scrollZoom': True,
+        'responsive': True
+    }
+    
+    fig.write_html(output_path, include_plotlyjs='cdn', config=config)
     return output_path
 
 
