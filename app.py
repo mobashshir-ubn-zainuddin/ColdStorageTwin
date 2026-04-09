@@ -83,19 +83,19 @@ def simulate():
         Dm = float(data.get('Dm', 2.2e-5))
         
         # Temperature boundary/initial conditions
-        T_initial = float(data.get('T_initial', 5.0))
-        T_wall = float(data.get('T_wall', 7.0))
-        T_inlet = float(data.get('T_inlet', 1.0))
+        T_initial = float(data.get('T_initial', -20.0))
+        T_wall = float(data.get('T_wall', -17.0))
+        T_inlet = float(data.get('T_inlet', -25.0))
         
         # Moisture boundary/initial conditions
-        W_initial = float(data.get('W_initial', 0.01))
-        W_wall = float(data.get('W_wall', 0.005))
-        W_inlet = float(data.get('W_inlet', 0.008))
-        RH_ambient = float(data.get('RH_ambient', 0.8))
+        W_initial = float(data.get('W_initial', 0.002))
+        W_wall = float(data.get('W_wall', 0.000))
+        W_inlet = float(data.get('W_inlet', 0.001))
+        RH_ambient = float(data.get('RH_ambient', 0.2))
         
         # Time stepping
-        time_steps = int(data.get('time_steps', 10))
-        dt = float(data.get('dt', 100.0))
+        time_steps = int(data.get('time_steps', 1000))
+        dt = float(data.get('dt', 1.0))
         
         # Create and run solver
         solver = create_solver_from_params(
@@ -235,13 +235,13 @@ def get_default_params():
         'Dm': 2.2e-5,
         # Temperature conditions
         'T_initial': -20.0,
-        'T_wall': -20.0,
+        'T_wall': -17.0,
         'T_inlet': -25.0,
         # Moisture conditions
-        'W_initial': 0.01,
-        'W_wall': 0.005,
-        'W_inlet': 0.008,
-        'RH_ambient': 0.8,
+        'W_initial': 0.002,
+        'W_wall': 0.000,
+        'W_inlet': 0.001,
+        'RH_ambient': 0.2,
         # Time stepping
         'time_steps': 10,
         'dt': 100.0
