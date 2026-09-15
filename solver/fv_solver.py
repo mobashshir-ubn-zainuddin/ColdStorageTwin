@@ -11,70 +11,147 @@ from geometry.mesh import Mesh
 class FVMTransport:
     """
     Core FVM transport logic for structured Cartesian grids.
-    Implements first-order upwind convection and central diffusion.
+    Prioritizes strict conservation by computing unique face fluxes.
     """
     def __init__(self, mesh: Mesh, bc_handler=None):
         self.mesh = mesh
         self.bc_handler = bc_handler
 
-    def _calculate_face_fluxes(self,
-                               phi: np.ndarray,
-                               rho: np.ndarray,
-                               u: np.ndarray,
-                               v: np.ndarray,
-                               w: np.ndarray,
-                               Gamma: np.ndarray,
-                               variable_name: str) -> Dict[str, np.ndarray]:
+    def _compute_face_fluxes(self,
+                             phi: np.ndarray,
+                             rho: np.ndarray,
+                             u: np.ndarray,
+                             v: np.ndarray,
+                             w: np.ndarray,
+                             Gamma: np.ndarray,
+                             variable_name: str) -> Dict[str, np.ndarray]:
         """
-        Calculate convective and diffusive fluxes across all six faces.
-        Returns a dictionary of flux arrays for each face.
+        Compute convective and diffusive fluxes across all six faces.
+        Internal faces are computed once and shared between neighbors.
+
+        Returns:
+            A dictionary of flux arrays, each of shape (nx, ny, nz).
+            flux_E[i,j,k] is the flux leaving cell (i,j,k) through its East face.
         """
         nx, ny, nz = phi.shape
-        fluxes = {face: np.zeros_like(phi) for face in ['E', 'W', 'N', 'S', 'T', 'B']}
+        # We define fluxes as LEAVING the cell (i,j,k)
+        flux_E = np.zeros_like(phi)
+        flux_W = np.zeros_like(phi)
+        flux_N = np.zeros_like(phi)
+        flux_S = np.zeros_like(phi)
+        flux_T = np.zeros_like(phi)
+        flux_B = np.zeros_like(phi)
 
-        # Helper for boundary checks
-        def get_val(field, i, j, k):
-            if 0 <= i < nx and 0 <= j < ny and 0 <= k < nz:
-                return field[i, j, k]
-            return None # Boundary
+        # --- X-DIRECTION (East-West) ---
+        # Face E of cell (i) is face W of cell (i+1)
+        # For internal faces i = 0 ... nx-2
+        # Face mass flux: F = rho_f * u_n_f * Area
+        # We use arithmetic mean for rho_f and u_n_f at the face.
 
-        # 1. East-West Faces (X-direction)
-        # Flux from cell (i,j,k) to (i+1,j,k)
-        # Area = A_E = A_W
-        for i in range(nx):
-            for j in range(ny):
-                for k in range(nz):
-                    # East Face
-                    # velocity_normal = u[i,j,k]
-                    vel_n = u[i, j, k]
-                    rho_f = rho[i, j, k]
+        # Internal East Faces
+        rho_f_E = 0.5 * (rho[:-1, :, :] + rho[1:, :, :])
+        u_f_E = 0.5 * (u[:-1, :, :] + u[1:, :, :])
+        F_E = rho_f_E * u_f_E * self.mesh.A_E
 
-                    # Convective Flux (Upwind)
-                    if i < nx - 1:
-                        phi_f = phi[i, j, k] if vel_n > 0 else phi[i+1, j, k]
-                        convective = rho_f * vel_n * phi_f * self.mesh.A_E
+        # Upwind phi: phi_f = phi_P if F_E > 0 else phi_N
+        phi_f_E = np.where(F_E >= 0, phi[:-1, :, :], phi[1:, :, :])
 
-                        # Diffusive Flux (Central)
-                        grad = (phi[i+1, j, k] - phi[i, j, k]) / self.mesh.dx
-                        diffusive = -Gamma[i, j, k] * grad * self.mesh.A_E
-                    else:
-                        # Boundary East
-                        if self.bc_handler:
-                            convective, diffusive = self.bc_handler.apply_flux(
-                                variable_name, 'E', phi[i,j,k], None,
-                                Gamma[i,j,k], self.mesh.dx, rho_f, vel_n, self.mesh.A_E
-                            )
-                            convective = 0 # Not possible at extreme boundary in this simple loop
-                            # Actually, we should just use the BC handler.
-                            # Let's refine this.
-                            pass
-                        else:
-                            convective = 0; diffusive = 0
+        # Diffusive flux: -Gamma_f * (phi_N - phi_P) / dx * Area
+        Gamma_f_E = 0.5 * (Gamma[:-1, :, :] + Gamma[1:, :, :])
+        diff_E = -Gamma_f_E * (phi[1:, :, :] - phi[:-1, :, :]) / self.mesh.dx * self.mesh.A_E
 
-                    fluxes['E'][i, j, k] = convective + diffusive
+        # Assign to cells
+        flux_E[:-1, :, :] = F_E * phi_f_E + diff_E
+        flux_W[1:, :, :] = - (F_E * phi_f_E + diff_E) # Conservation: Flux(P->N) = -Flux(N->P)
 
-        # This loop is too slow for Python. I must vectorize.
-        return fluxes
+        # --- Y-DIRECTION (North-South) ---
+        rho_f_N = 0.5 * (rho[:, :-1, :] + rho[:, 1:, :])
+        v_f_N = 0.5 * (v[:, :-1, :] + v[:, 1:, :])
+        F_N = rho_f_N * v_f_N * self.mesh.A_N
+
+        phi_f_N = np.where(F_N >= 0, phi[:, :-1, :], phi[:, 1:, :])
+
+        Gamma_f_N = 0.5 * (Gamma[:, :-1, :] + Gamma[:, 1:, :])
+        diff_N = -Gamma_f_N * (phi[:, 1:, :] - phi[:, :-1, :]) / self.mesh.dy * self.mesh.A_N
+
+        flux_N[:, :-1, :] = F_N * phi_f_N + diff_N
+        flux_S[:, 1:, :] = - (F_N * phi_f_N + diff_N)
+
+        # --- Z-DIRECTION (Top-Bottom) ---
+        rho_f_T = 0.5 * (rho[:, :, :-1] + rho[:, :, 1:])
+        w_f_T = 0.5 * (w[:, :, :-1] + w[:, :, 1:])
+        F_T = rho_f_T * w_f_T * self.mesh.A_T
+
+        phi_f_T = np.where(F_T >= 0, phi[:, :, :-1], phi[:, :, 1:])
+
+        Gamma_f_T = 0.5 * (Gamma[:, :, :-1] + Gamma[:, :, 1:])
+        diff_T = -Gamma_f_T * (phi[:, :, 1:] - phi[:, :, :-1]) / self.mesh.dz * self.mesh.A_T
+
+        flux_T[:, :, :-1] = F_T * phi_f_T + diff_T
+        flux_B[:, :, 1:] = - (F_T * phi_f_T + diff_T)
+
+        # --- BOUNDARY TREATMENT ---
+        # Now handle the outer faces (where i=nx-1 for East, i=0 for West, etc.)
+        if self.bc_handler:
+            # East boundary (i = nx-1)
+            # rho_f and u_f at boundary are derived from boundary state or extrapolated
+            # For simplicity, we use cell-center value for rho and u at the boundary face.
+            rho_b_E = rho[-1, :, :]
+            u_b_E = u[-1, :, :]
+            F_b_E = rho_b_E * u_b_E * self.mesh.A_E
+            flux_E[-1, :, :] = self.bc_handler.apply_flux(
+                variable_name, 'E', phi[-1, :, :], None,
+                Gamma[-1, :, :], self.mesh.dx, rho_b_E, u_b_E, self.mesh.A_E
+            )
+
+            # West boundary (i = 0)
+            rho_b_W = rho[0, :, :]
+            u_b_W = -u[0, :, :] # normal is -x
+            F_b_W = rho_b_W * u_b_W * self.mesh.A_W
+            flux_W[0, :, :] = self.bc_handler.apply_flux(
+                variable_name, 'W', phi[0, :, :], None,
+                Gamma[0, :, :], self.mesh.dx, rho_b_W, u_b_W, self.mesh.A_W
+            )
+
+            # North boundary (j = ny-1)
+            rho_b_N = rho[:, -1, :]
+            v_b_N = v[:, -1, :]
+            F_b_N = rho_b_N * v_b_N * self.mesh.A_N
+            flux_N[:, -1, :] = self.bc_handler.apply_flux(
+                variable_name, 'N', phi[:, -1, :], None,
+                Gamma[:, -1, :], self.mesh.dy, rho_b_N, v_b_N, self.mesh.A_N
+            )
+
+            # South boundary (j = 0)
+            rho_b_S = rho[:, 0, :]
+            v_b_S = -v[:, 0, :]
+            F_b_S = rho_b_S * v_b_S * self.mesh.A_S
+            flux_S[:, 0, :] = self.bc_handler.apply_flux(
+                variable_name, 'S', phi[:, 0, :], None,
+                Gamma[:, 0, :], self.mesh.dy, rho_b_S, v_b_S, self.mesh.A_S
+            )
+
+            # Top boundary (k = nz-1)
+            rho_b_T = rho[:, :, -1]
+            w_b_T = w[:, :, -1]
+            F_b_T = rho_b_T * w_b_T * self.mesh.A_T
+            flux_T[:, :, -1] = self.bc_handler.apply_flux(
+                variable_name, 'T', phi[:, :, -1], None,
+                Gamma[:, :, -1], self.mesh.dz, rho_b_T, w_b_T, self.mesh.A_T
+            )
+
+            # Bottom boundary (k = 0)
+            rho_b_B = rho[:, :, 0]
+            w_b_B = -w[:, :, 0]
+            F_b_B = rho_b_B * w_b_B * self.mesh.A_B
+            flux_B[:, :, 0] = self.bc_handler.apply_flux(
+                variable_name, 'B', phi[:, :, 0], None,
+                Gamma[:, :, 0], self.mesh.dz, rho_b_B, w_b_B, self.mesh.A_B
+            )
+
+        return {
+            'E': flux_E, 'W': flux_W, 'N': flux_N, 'S': flux_S, 'T': flux_T, 'B': flux_B
+        }
 
     def integrate_explicit(self,
                            phi: np.ndarray,
@@ -88,93 +165,27 @@ class FVMTransport:
                            variable_name: str) -> Tuple[np.ndarray, Dict[str, np.ndarray]]:
         """
         Perform one explicit FVM update step.
-        (rho * V * phi_new - rho * V * phi_old) / dt = - Sum(Fluxes) + S_phi * V
+        rho_P * V_P * (phi_new - phi_old) / dt = - Sum(Fluxes) + S_phi * V_P
         """
         nx, ny, nz = phi.shape
         V = self.mesh.V_cell
 
-        # For a truly vectorized FVM, we compute fluxes on the faces.
-        # We'll use slicing for speed.
+        # 1. Compute all fluxes
+        fluxes = self._compute_face_fluxes(phi, rho, u, v, w, Gamma, variable_name)
 
-        # --- CONVECTIVE FLUXES (Upwind) ---
-        # East Face Fluxes (i -> i+1)
-        # F_E[i,j,k] = rho[i,j,k] * u[i,j,k] * (phi[i,j,k] if u > 0 else phi[i+1,j,k]) * A_E
-        u_pos = np.maximum(u, 0)
-        u_neg = np.minimum(u, 0)
+        # Net flux leaving the cell
+        net_flux = (
+            fluxes['E'] + fluxes['W'] +
+            fluxes['N'] + fluxes['S'] +
+            fluxes['T'] + fluxes['B']
+        )
 
-        # Note: this is a simplified internal-only vectorized version.
-        # Boundary conditions are handled separately.
+        # 2. Explicit Update
+        # phi_new = phi_old - (dt / (rho * V)) * (net_flux - S_phi * V)
+        # To be strictly conservative:
+        # rho_new * V * phi_new = rho_old * V * phi_old - dt * net_flux + dt * S_phi * V
+        # We assume rho is constant over the timestep for the update part.
 
-        # Flux E (out of cell i)
-        flux_E = np.zeros_like(phi)
-        # Internal faces i=0 to nx-2
-        flux_E[:-1, :, :] = (
-            u_pos[:-1, :, :] * phi[:-1, :, :] +
-            u_neg[:-1, :, :] * phi[1:, :, :]
-        ) * rho[:-1, :, :] * self.mesh.A_E
+        phi_new = phi - (dt / (rho * V)) * (net_flux - S_phi * V)
 
-        # Flux W (out of cell i) = - Flux E (into cell i)
-        flux_W = np.zeros_like(phi)
-        flux_W[1:, :, :] = -flux_E[1:, :, :] # This is wrong, should be from E of i-1
-        # Correct: Flux_W[i] = - Flux_E[i-1]
-        flux_W[1:, :, :] = -flux_E[:-1, :, :]
-
-        # North-South (Y-direction)
-        v_pos = np.maximum(v, 0)
-        v_neg = np.minimum(v, 0)
-        flux_N = np.zeros_like(phi)
-        flux_N[:, :-1, :] = (
-            v_pos[:, :-1, :] * phi[:, :-1, :] +
-            v_neg[:, :-1, :] * phi[:, 1:, :]
-        ) * rho[:, :-1, :] * self.mesh.A_N
-        flux_S = np.zeros_like(phi)
-        flux_S[:, 1:, :] = -flux_N[:, :-1, :]
-
-        # Top-Bottom (Z-direction)
-        w_pos = np.maximum(w, 0)
-        w_neg = np.minimum(w, 0)
-        flux_T = np.zeros_like(phi)
-        flux_T[:, :, :-1] = (
-            w_pos[:, :, :-1] * phi[:, :, :-1] +
-            w_neg[:, :, :-1] * phi[:, :, 1:]
-        ) * rho[:, :, :-1] * self.mesh.A_T
-        flux_B = np.zeros_like(phi)
-        flux_B[:, :, 1:] = -flux_T[:, :, :-1]
-
-        # --- DIFFUSIVE FLUXES (Central) ---
-        # Flux_E = -Gamma * (phi[i+1] - phi[i]) / dx * A_E
-        diff_E = np.zeros_like(phi)
-        diff_E[:-1, :, :] = -Gamma[:-1, :, :] * (phi[1:, :, :] - phi[:-1, :, :]) / self.mesh.dx * self.mesh.A_E
-        diff_W = np.zeros_like(phi)
-        diff_W[1:, :, :] = -diff_E[1:, :, :] # This is wrong. Diff_W[i] = -Diff_E[i-1]
-        diff_W[1:, :, :] = -diff_E[:-1, :, :]
-
-        diff_N = np.zeros_like(phi)
-        diff_N[:, :-1, :] = -Gamma[:, :-1, :] * (phi[:, 1:, :] - phi[:, :-1, :]) / self.mesh.dy * self.mesh.A_N
-        diff_S = np.zeros_like(phi)
-        diff_S[:, 1:, :] = -diff_N[:, :-1, :]
-
-        diff_T = np.zeros_like(phi)
-        diff_T[:, :, :-1] = -Gamma[:, :, :-1] * (phi[:, :, 1:] - phi[:, :, :-1]) / self.mesh.dz * self.mesh.A_T
-        diff_B = np.zeros_like(phi)
-        diff_B[:, :, 1:] = -diff_T[:, :, :-1]
-
-        # Sum all fluxes
-        total_flux = (flux_E + flux_W + flux_N + flux_S + flux_T + flux_B) + \
-                     (diff_E + diff_W + diff_N + diff_S + diff_T + diff_B)
-
-        # Explicit update
-        # phi_new = phi_old - (dt / (rho * V)) * (Sum(Fluxes) - S_phi * V)
-        # Note: Sum(Fluxes) here is the net flux leaving the cell.
-        # If we defined Flux_E as leaving and Flux_W as leaving, then Sum(Fluxes) is correct.
-        # But our Flux_W[i] = -Flux_E[i-1], so Sum(Flux_E + Flux_W) is actually the net flux.
-
-        phi_new = phi - (dt / (rho * V)) * (total_flux - S_phi * V)
-
-        # Diagnostic fluxes
-        diagnostics = {
-            'convective': (flux_E + flux_W + flux_N + flux_S + flux_T + flux_B),
-            'diffusive': (diff_E + diff_W + diff_N + diff_S + diff_T + diff_B)
-        }
-
-        return phi_new, diagnostics
+        return phi_new, fluxes

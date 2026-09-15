@@ -65,7 +65,7 @@ class FiniteDifference3DSolver:
         W[:, :, 0] = config.W_inlet
 
         self.state = SimulationState(config.nx, config.ny, config.nz, T, P, u, v, w, W)
-        self.state.update_derived_fields(calculate_psychrometrics)
+        self.state.update_derived_fields()
 
         # History for visualization
         self.history = [self.state.T.copy()]
@@ -88,9 +88,9 @@ class FiniteDifference3DSolver:
 
         threshold = 1.0 / 6.0
         return {
-            'rT': rT, 'rW': rW, 'threshold': threshold,
-            'is_stable': rT <= threshold and rW <= threshold,
-            'margin_T': threshold - rT, 'margin_W': threshold - rW,
+            'rT': float(rT), 'rW': float(rW), 'threshold': float(threshold),
+            'is_stable': bool(rT <= threshold and rW <= threshold),
+            'margin_T': float(threshold - rT), 'margin_W': float(threshold - rW),
         }
 
     def step(self):
@@ -135,7 +135,7 @@ class FiniteDifference3DSolver:
 
         # Update state
         self.state.T, self.state.omega = T_new, W_new
-        self.state.update_derived_fields(calculate_psychrometrics)
+        self.state.update_derived_fields()
 
         # Store history
         self.history.append(self.state.T.copy())
