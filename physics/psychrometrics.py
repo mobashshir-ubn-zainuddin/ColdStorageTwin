@@ -1,6 +1,11 @@
 """
 Psychrometric engine for cold storage digital twin.
 Implements thermodynamic relations for moist air.
+
+Primary state variables:
+    T: Temperature [°C]
+    P: Absolute Pressure [Pa]
+    omega: Humidity Ratio [kg water / kg dry air]
 """
 
 import numpy as np
@@ -27,11 +32,9 @@ def saturation_pressure(T: Union[float, np.ndarray]) -> Union[float, np.ndarray]
     T = np.asanyarray(T)
 
     # Water (T > 0 °C)
-    # pws = 611.2 * exp((17.62 * T) / (T + 243.04))
     pws_water = 611.2 * np.exp((17.62 * T) / (T + 243.04))
 
     # Ice (T < 0 °C)
-    # pws = 611.15 * exp((22.46 * T) / (T + 272.62))
     pws_ice = 611.15 * np.exp((22.46 * T) / (T + 272.62))
 
     return np.where(T >= 0, pws_water, pws_ice)
@@ -61,11 +64,13 @@ def calculate_psychrometrics(T: Union[float, np.ndarray], P: Union[float, np.nda
     # Saturation vapour pressure
     pws = saturation_pressure(T)
 
-    # Relative Humidity (RH)
-    RH = 100.0 * pv / pws
+    # Relative Humidity (RH) [0-100%]
+    # Guard against pws=0
+    RH = 100.0 * pv / np.maximum(pws, 1e-5)
 
     # Saturation humidity ratio
-    omega_s = (MW_RATIO * pws) / (P - pws)
+    # Guard against P <= pws
+    omega_s = (MW_RATIO * pws) / np.maximum(P - pws, 1e-5)
 
     # Specific humidity q = omega / (1 + omega)
     q = omega / (1.0 + omega)
@@ -73,9 +78,9 @@ def calculate_psychrometrics(T: Union[float, np.ndarray], P: Union[float, np.nda
     # Enthalpy: h = 1.006 * T + omega * (2501 + 1.86 * T) [kJ/kg dry air]
     h = 1.006 * T + omega * (2501.0 + 1.86 * T)
 
-    # Specific volume: v = Rda * Tk * (1 + 1.6078 * omega) / P
+    # Specific volume: v = Rda * Tk * (1 + 1.6078 * omega) / P [m3/kg dry air]
     Tk = T + 273.15
-    v = (R_DA * Tk * (1.0 + 1.6078 * omega)) / P
+    v = (R_DA * Tk * (1.0 + 1.6078 * omega)) / np.maximum(P, 1e-5)
 
     # Densities
     rho_da = pda / (R_DA * Tk)
@@ -106,14 +111,12 @@ def calculate_dew_point(P: Union[float, np.ndarray], omega: Union[float, np.ndar
     pv = (omega * P) / (MW_RATIO + omega)
 
     def solve_tdp(pv_val):
-        # Objective function: f(T) = pws(T) - pv
+        if pv_val <= 0: return -273.15
         def objective(T):
             return saturation_pressure(T) - pv_val
-
         try:
-            # Bisection search between -100 and 100 °C
             return optimize.brentq(objective, -100.0, 100.0)
-        except ValueError:
+        except (ValueError, RuntimeError):
             return np.nan
 
     if pv.ndim == 0:
@@ -124,61 +127,32 @@ def calculate_dew_point(P: Union[float, np.ndarray], omega: Union[float, np.ndar
 def calculate_wet_bulb(T: Union[float, np.ndarray], P: Union[float, np.ndarray], omega: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
     """
     Calculate wet bulb temperature (Twb) in °C numerically.
-    Uses the psychrometric relation:
-    q_sat(Twb) - omega = ( (h_db - h_wb) / (Lv * (Twb - T)) ) * ...
-    Actually, we use the common iterative solve for:
-    h_wb = h_db - (mdot_evap * Lv)
-    Simplified psychrometric equation for Twb:
-    T_wb = T - ( (h_db - h_wb) / (C_p_ma * rho_ma) ) / ...
-
-    For numerical implementation, we find Twb such that
-    the enthalpy of the air at Twb and saturation matches
-    the enthalpy of the actual air minus the evaporative cooling.
     """
     T = np.asanyarray(T)
     P = np.asanyarray(P)
     omega = np.asanyarray(omega)
 
     def solve_twb(T_val, P_val, omega_val):
-        # Current state enthalpy
-        h_db = 1.006 * T_val + omega_val * (2501.0 + 1.86 * T_val)
-
         def objective(Twb):
-            # Enthalpy at Twb and saturation
-            omega_s_wb = (MW_RATIO * saturation_pressure(Twb)) / (P_val - saturation_pressure(Twb))
-            h_wb = 1.006 * Twb + omega_s_wb * (2501.0 + 1.86 * Twb)
+            # Saturation humidity ratio at Twb
+            pws_twb = saturation_pressure(Twb)
+            omega_s_twb = (MW_RATIO * pws_twb) / np.maximum(P_val - pws_twb, 1e-5)
 
-            # Simplified psychrometric equation:
-            # (h_db - h_wb) = (rho_ma * Cp_ma * (T_db - Twb)) / ( (h_fg_wb / (rho_v_wb * Rv * Twb_k)) * ... )
-            # More simply, Twb is where the heat transferred from air to water
-            # equals the heat removed by evaporation.
-
-            # Common formula for Twb solve:
-            # omega_s(Twb) = omega + ( (P * (T - Twb)) / (h_fg * Twb_k) )
-            # We use the a more robust iterative approach.
-
-            #- For a simplified a-b-c solve, let's use the Newton-Raphson or Bisection
-            # on the psychrometric chart relation.
-
-            # Approximate Twb relation:
-            # Twb = T - ( (T - Twb_sat) * (omega_s(Twb) - omega) / omega_s(Twb) ) / ...
-
-            # Let's use the common psychrometric relation:
+            # Psychrometric relation:
             # omega_s(Twb) = omega + ( (P * (T - Twb)) / (Lv * (Twb + 273.15)) )
-            return omega_s_wb - (omega_val + (P_val * (T_val - Twb)) / (LV_REF * (Twb + 273.15)))
+            # based on the heat transfer balance at the wet bulb.
+            return omega_s_twb - (omega_val + (P_val * (T_val - Twb)) / (LV_REF * (Twb + 273.15)))
 
         try:
-            # Twb is always between Twb_sat and T_db
             T_dp = calculate_dew_point(P_val, omega_val)
-            return optimize.brentq(objective, T_dp, T_val)
+            # Twb is between dew point and dry bulb
+            return optimize.brentq(objective, T_dp if not np.isnan(T_dp) else -100.0, T_val)
         except (ValueError, RuntimeError):
-            # If omega is already saturated, Twb = T
             return T_val
 
     if T.ndim == 0:
         return solve_twb(T, P, omega)
 
-    # Vectorized solve
     res = []
     it = np.nditer([T, P, omega])
     for t, p, o in it:
