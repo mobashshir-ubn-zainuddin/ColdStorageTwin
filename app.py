@@ -4,9 +4,9 @@ Flask application for 3D Numerical Digital Twin for Cold Storage
 
 from flask import Flask, render_template, request, jsonify
 import os
-from solver_3d import create_solver_from_params
-from visualizer import (
-    plot_midplane_heatmap, 
+from solver.fdm_solver import create_solver_from_params
+from visualization.visualizer import (
+    plot_midplane_heatmap,
     plot_temperature_profile,
     plot_3d_field,
     plot_3d_field_volumetric,
