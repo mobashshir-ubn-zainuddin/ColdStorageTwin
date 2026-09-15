@@ -1,25 +1,34 @@
 """
 Airflow physics for the Cold Storage Digital Twin.
-Implements momentum and continuity related physics.
+Handles momentum-related sources and physical properties.
 """
 
 import numpy as np
+from typing import Tuple, Union
 from .properties import dynamic_viscosity
 
-def calculate_momentum_source(rho: np.ndarray, u: np.ndarray, v: np.ndarray, w: np.ndarray,
-                             g: float = 9.81, orientation: str = 'z') -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+def calculate_momentum_sources(rho: np.ndarray, T: np.ndarray, P: np.ndarray, omega: np.ndarray,
+                                g_accel: float = 9.81) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    Calculate momentum sources (e.g., buoyancy).
-    S_u = rho * g * delta_T / T_ref (simplified)
+    Calculate momentum source terms S_u, S_v, S_w [kg/(m³·s²)].
+    Includes buoyancy effects: S_buoyancy = rho * g * (T - T_ref) / T_ref
     """
-    # For now, return zero.
-    return np.zeros_like(u), np.zeros_like(v), np.zeros_like(w)
+    # For now, we implement a simple buoyancy source in the Z direction.
+    # T_ref = 288.15 K
+    T_ref = 288.15
+    Tk = T + 273.15
 
-def calculate_stress_tensor(rho: np.ndarray, u: np.ndarray, v: np.ndarray, w: np.ndarray,
-                            T: np.ndarray, P: np.ndarray, omega: np.ndarray):
+    # Buoyancy: source proportional to temperature difference
+    # S_w = rho * g * (Tk - T_ref) / T_ref
+    S_w = rho * g_accel * (Tk - T_ref) / T_ref
+
+    S_u = np.zeros_like(rho)
+    S_v = np.zeros_like(rho)
+
+    return S_u, S_v, S_w
+
+def get_viscosity_field(T: np.ndarray, P: np.ndarray, omega: np.ndarray) -> np.ndarray:
     """
-    Calculate the Newtonian stress tensor tau.
-    tau = mu * [grad(u) + grad(u)^T] - (2/3)*mu*(div(u))I
+    Returns the dynamic viscosity field mu [Pa·s].
     """
-    # Placeholder for FVM implementation
-    return None
+    return dynamic_viscosity(T, P, omega)
