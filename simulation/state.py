@@ -45,19 +45,41 @@ class SimulationState:
         for key, value in props.items():
             self.derived[key] = value
 
-    def get_point_state(self, i: int, j: int, k: int) -> Dict[str, Any]:
+    def validate(self) -> Dict[str, Any]:
         """
-        Get the complete state at cell (i, j, k).
+        Validate the physical coherence of the state.
+        Returns a dictionary of validation results.
         """
-        state = {
-            'T': self.T[i, j, k],
-            'P': self.P[i, j, k],
-            'u': self.u[i, j, k],
-            'v': self.v[i, j, k],
-            'w': self.w[i, j, k],
-            'omega': self.omega[i, j, k]
+        props = calculate_psychrometrics(self.T, self.P, self.omega)
+
+        # 1. T > absolute zero (-273.15 °C)
+        t_valid = np.all(self.T > -273.15)
+
+        # 2. P > 0
+        p_valid = np.all(self.P > 0)
+
+        # 3. pv > 0 and pv < P
+        pv = props['pv']
+        pv_valid = np.all((pv > 0) & (pv < self.P))
+
+        # 4. omega >= 0
+        omega_valid = np.all(self.omega >= 0)
+
+        # 5. rho > 0
+        rho_valid = np.all(props['rho_ma'] > 0)
+
+        # 6. Detect supersaturation (RH > 100%)
+        rh = props['RH']
+        supersaturated = np.any(rh > 100.0)
+
+        return {
+            't_valid': t_valid,
+            'p_valid': p_valid,
+            'pv_valid': pv_valid,
+            'omega_valid': omega_valid,
+            'rho_valid': rho_valid,
+            'supersaturated': supersaturated,
+            'is_coherent': t_valid and p_valid and pv_valid and omega_valid and rho_valid
         }
-        if self.derived:
-            for key, field in self.derived.items():
-                state[key] = field[i, j, k]
-        return state
+
+    def get_point_state(self, i: int, j: int, k: int) -> Dict[str, Any]:
