@@ -32,43 +32,32 @@ class BoundaryHandler:
             self.bcs[variable] = {}
         self.bcs[variable][face] = bc
 
-    def apply_flux(self, variable: str, face: str, phi_p: float, phi_n: float,
-                   gamma: float, dx: float, rho: float, vel_n: float, area: float) -> float:
+    def apply_flux(self, variable: str, face: str, phi_p: Union[float, np.ndarray], phi_n: Optional[Union[float, np.ndarray]],
+                   gamma: Union[float, np.ndarray], dx: float, rho: Union[float, np.ndarray], vel_n: Union[float, np.ndarray], area: float) -> Union[float, np.ndarray]:
         """
         Calculate the total flux across a boundary face.
-        Flux = Convective + Diffusive
+        Flux = Convective + Diffusive. Vectorized implementation.
         """
         bc = self.bcs.get(variable, {}).get(face)
 
-        # If no BC is defined, assume zero-gradient (adiabatic/impermeable)
+        # Default: zero-gradient (adiabatic/impermeable)
         if bc is None:
-            # Neumann: dphi/dn = 0
-            convective = rho * vel_n * phi_p * area
-            diffusive = 0.0
-            return convective + diffusive
+            return rho * vel_n * phi_p * area
 
         # Convective flux (Upwind)
-        #- If vel_n > 0: fluid enters domain from boundary
-        #- If vel_n < 0: fluid leaves domain
-        if vel_n > 0:
-            # Boundary is the 'owner', we need the boundary value phi_B
-            phi_b = bc.value
-            convective = rho * vel_n * phi_b * area
-        else:
-            # Fluid leaves, use cell value
-            convective = rho * vel_n * phi_p * area
+        # If vel_n > 0: fluid enters domain (phi_b)
+        # If vel_n <= 0: fluid leaves domain (phi_p)
+        phi_b = bc.value
+        convective = np.where(vel_n > 0, rho * vel_n * phi_b * area, rho * vel_n * phi_p * area)
 
         # Diffusive flux: -gamma * (dphi/dn) * area
         if bc.type == 'dirichlet':
-            # Fixed value: grad approx (phi_b - phi_p) / (dx/2)
-            diffusive = -gamma * (bc.value - phi_p) / (dx / 2.0) * area
+            diffusive = -gamma * (phi_b - phi_p) / (dx / 2.0) * area
         elif bc.type == 'neumann':
-            # Fixed gradient: dphi/dn = value
-            diffusive = -gamma * bc.value * area
+            diffusive = -gamma * phi_b * area
         elif bc.type == 'robin':
-            # -gamma * dphi/dn = h * (phi_b - phi_p)
             h = bc.h if bc.h is not None else 0.0
-            diffusive = h * (bc.value - phi_p) * area
+            diffusive = h * (phi_b - phi_p) * area
         else:
             diffusive = 0.0
 

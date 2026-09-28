@@ -48,9 +48,6 @@ class PressureSolver:
             P_old = P.copy()
 
             # Weights for unequal grids
-            inv_dx2 = 1.0 / (self.mesh.dx**2)
-            inv_dy2 = 1.0 / (self.mesh.dy**2)
-            inv_dz2 =, 1.0 / (self.mesh.dz**2) # wait, typo in my thought, will fix in code
 
             # Fixed weights calculation
             w_x = 1.0 / (self.mesh.dx**2)
