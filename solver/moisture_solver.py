@@ -37,12 +37,11 @@ class MoistureSolver:
         # Total volumetric source [kg/(m³·s)]
         S_total_vol = S_omega_vol - S_cond_vol + S_evap_vol
 
-        # The conserved quantity is rho_da * omega.
-        # In FVMTransport:
+        # Conserved quantity: rho_da * omega
         # phi = omega
         # rho = rho_da
         # Gamma = rho_da * D_eff
-        # S_phi = S_total_vol (volumetric source)
+        # S_phi = S_total_vol
 
         omega_new, _ = self.transport.integrate_explicit(
             phi=omega, rho=rho_da, u=u, v=v, w=w, Gamma=rho_da * D_eff, S_phi=S_total_vol, dt=dt, variable_name='omega'

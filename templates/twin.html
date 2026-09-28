@@ -1,0 +1,715 @@
+{% extends "base.html" %}
+
+{% block title %}Full 3-D Numerical Twin - Cold Storage Digital Twin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .viz-root {
+        --surface-1: #fcfcfb;
+        --grid: #e6e5e1;
+        --text-primary: #0b0b0b;
+        --text-secondary: #52514e;
+        --series-1: #2a78d6;
+        --series-2: #eb6834;
+        --series-3: #1baf7a;
+        --series-4: #eda100;
+    }
+    .section-title { font-weight: 700; color: var(--primary-blue); margin: 0 0 .75rem; font-size: 1.05rem; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .6rem 1rem; }
+    .form-grid label { font-size: .75rem; color: var(--text-secondary); margin-bottom: .1rem; display: block; }
+    .form-grid input, .form-grid select { width: 100%; font-size: .85rem; padding: .3rem .45rem; border: 1px solid var(--border-color); border-radius: 6px; background: #fff; }
+    .vec3 { display: flex; gap: .25rem; }
+    .vec3 input { min-width: 0; }
+    .field-wide { grid-column: span 2; }
+    .src-card { border: 1px solid var(--border-color); border-left: 4px solid var(--accent-blue); border-radius: 10px; padding: .9rem 1rem; margin-bottom: .8rem; background: #fff; }
+    .src-card h6 { display: flex; justify-content: space-between; align-items: center; margin-bottom: .6rem; font-weight: 700; }
+    .src-kind { font-size: .7rem; text-transform: uppercase; letter-spacing: .5px; color: var(--text-secondary); margin-right: .5rem; }
+    .btn-add { font-size: .8rem; padding: .3rem .7rem; border-radius: 6px; border: 1px dashed var(--accent-blue); color: var(--accent-blue); background: var(--light-blue); margin: 0 .4rem .4rem 0; }
+    .btn-remove { font-size: .75rem; border: none; background: none; color: #b3261e; }
+    .stat-tile { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 10px; padding: .8rem; height: 100%; }
+    .stat-tile .v { font-size: 1.25rem; font-weight: 700; color: var(--text-primary); }
+    .stat-tile .l { font-size: .72rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .4px; }
+    .plot-box { background: var(--surface-1); border: 1px solid var(--border-color); border-radius: 10px; min-height: 420px; }
+    .plot-small { min-height: 300px; }
+    .table-sm td, .table-sm th { font-size: .8rem; padding: .25rem .5rem; }
+    .table-values td.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+    .progress { height: 1.25rem; }
+    #jsonEditor { font-family: ui-monospace, Consolas, monospace; font-size: .75rem; min-height: 260px; }
+    .controls-row { display: flex; flex-wrap: wrap; gap: .75rem; align-items: end; margin-bottom: .75rem; }
+    .controls-row > div { min-width: 140px; }
+    .controls-row label { font-size: .75rem; color: var(--text-secondary); display: block; }
+    .hint { font-size: .78rem; color: var(--text-secondary); }
+    .badge-on { background: #e7f4ec; color: #1b6b3a; }
+    .badge-off { background: #f1f1ef; color: #52514e; }
+    .nav-tabs .nav-link { color: var(--primary-blue) !important; }
+    .nav-tabs .nav-link.active { color: var(--primary-blue) !important; font-weight: 700; border-bottom: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="viz-root">
+<div class="card">
+    <div class="card-header"><h2 class="card-title">Full 3-D Numerical Digital Twin</h2></div>
+    <div class="card-body">
+        <p class="mb-2">A transient 3-D finite-volume model of a cold room. It covers airflow, pressure, heat, moisture, condensation and frost, plus injection, leakage, doors, walls, internal loads, products and unit coolers. The model computes the full psychrometric state of every cell at every saved time.</p>
+        <div class="controls-row">
+            <div><label>Preset</label>
+                <select id="presetSelect" class="form-select form-select-sm">
+                    <option value="default">Frozen-food store: pull-down + door opening</option>
+                    <option value="plan_example">Plan §59 example: injection + door leakage</option>
+                </select></div>
+            <div><button class="btn btn-outline-secondary btn-sm" id="loadPresetBtn">Load preset</button></div>
+            <div><button class="btn btn-primary" id="runBtn">Run simulation</button></div>
+            <div><button class="btn btn-outline-danger btn-sm" id="cancelBtn" style="display:none">Cancel</button></div>
+        </div>
+        <div id="progressWrap" style="display:none">
+            <div class="progress mb-1"><div id="progressBar" class="progress-bar" role="progressbar" style="width:0%">0%</div></div>
+            <div class="hint" id="progressMsg"></div>
+        </div>
+        <div id="alertBox"></div>
+    </div>
+</div>
+
+<!-- A. Simulation setup -->
+<div class="card">
+    <div class="card-header"><h3 class="card-title">A. Simulation setup</h3></div>
+    <div class="card-body">
+        <ul class="nav nav-tabs mb-3" role="tablist">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tabGeom" type="button">Geometry &amp; mesh</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabInit" type="button">Initial conditions</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabWalls" type="button">Walls &amp; outside</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabNum" type="button">Numerics</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tabJson" type="button">Scenario JSON</button></li>
+        </ul>
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="tabGeom"><div class="form-grid" id="formGeom"></div>
+                <p class="hint mt-2" id="meshInfo"></p></div>
+            <div class="tab-pane fade" id="tabInit"><div class="form-grid" id="formInit"></div>
+                <p class="hint mt-2">Moisture can be given as RH, humidity ratio, dew point, vapour pressure or specific humidity. It is converted to the transported humidity ratio ω. Zones and vertical gradients can be added in the Scenario JSON tab.</p></div>
+            <div class="tab-pane fade" id="tabWalls"><div class="form-grid" id="formWalls"></div>
+                <p class="hint mt-2">Walls and ceiling use a single insulated-panel layer. The floor is a slab on ground (edit per-surface layers in the JSON tab). Heat flux is q = U (T<sub>sol-air</sub> − T<sub>air</sub>), with 1/U = 1/h<sub>i</sub> + ΣL/k + 1/h<sub>o</sub>. Envelope leakage is the effective leakage area per m² of surface.</p></div>
+            <div class="tab-pane fade" id="tabNum"><div class="form-grid" id="formNum"></div>
+                <p class="hint mt-2">In auto mode Δt adapts to the CFL + diffusion limit of the explicit scheme. In fixed mode the run stops with a diagnostic if Δt becomes unstable.</p></div>
+            <div class="tab-pane fade" id="tabJson">
+                <textarea id="jsonEditor" class="form-control"></textarea>
+                <div class="mt-2"><button class="btn btn-outline-secondary btn-sm" id="jsonRefresh">Refresh from form</button>
+                    <button class="btn btn-outline-primary btn-sm" id="jsonApply">Apply JSON to form</button></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- B. Air sources -->
+<div class="card">
+    <div class="card-header"><h3 class="card-title">B. Air sources, openings &amp; loads</h3></div>
+    <div class="card-body">
+        <div class="mb-2">
+            <button class="btn-add" data-add="injections">+ Add injection</button>
+            <button class="btn-add" data-add="leakages">+ Add leakage</button>
+            <button class="btn-add" data-add="doors">+ Add door event</button>
+            <button class="btn-add" data-add="heat_sources">+ Add heat source</button>
+            <button class="btn-add" data-add="products">+ Add product block</button>
+            <button class="btn-add" data-add="cooling_units">+ Add unit cooler</button>
+        </div>
+        <p class="hint">Faces: W (x=0), E (x=L<sub>x</sub>), S (y=0), N (y=L<sub>y</sub>), B (floor), T (ceiling). Choose "interior" for a point/jet source. Positions are in metres. Specify one flow, one moisture and one thermal quantity; the rest is derived.</p>
+        <div id="sourceList"></div>
+    </div>
+</div>
+
+<!-- Results -->
+<div id="results" style="display:none">
+<div class="card">
+    <div class="card-header"><h3 class="card-title">Key results</h3></div>
+    <div class="card-body">
+        <div class="row g-2" id="tiles"></div>
+        <div class="hint mt-2" id="runInfo"></div>
+    </div>
+</div>
+
+<!-- C. 3-D visualisation -->
+<div class="card">
+    <div class="card-header"><h3 class="card-title">C. Fields in space and time</h3></div>
+    <div class="card-body">
+        <div class="controls-row">
+            <div><label>Field</label><select id="fieldSelect" class="form-select form-select-sm"></select></div>
+            <div><label>View</label><select id="viewSelect" class="form-select form-select-sm">
+                <option value="slice">2-D slice</option><option value="volume">3-D volume</option></select></div>
+            <div><label>Slice plane</label><select id="planeSelect" class="form-select form-select-sm">
+                <option value="xy">XY (horizontal)</option><option value="xz">XZ (vertical)</option><option value="yz">YZ (vertical)</option></select></div>
+            <div style="min-width:200px"><label>Plane position <span id="posLabel"></span></label><input type="range" id="posSlider" class="form-range" step="0.01"></div>
+            <div><label><input type="checkbox" id="vecToggle" checked> Velocity vectors</label></div>
+        </div>
+        <div class="controls-row">
+            <div><button class="btn btn-outline-primary btn-sm" id="playBtn">▶ Play</button></div>
+            <div style="flex:1;min-width:260px"><label>Time <strong id="timeLabel">0 s</strong></label><input type="range" id="timeSlider" class="form-range" min="0" value="0" step="1"></div>
+        </div>
+        <div id="fieldPlot" class="plot-box"></div>
+        <p class="hint mt-1">Click any cell in the 2-D slice to probe that point (section D). Markers in the 3-D view show injection points, openings, doors, heat sources and unit coolers. Hover a marker to see its properties.</p>
+        <h6 class="mt-3">Sources &amp; openings at this time</h6>
+        <div class="table-responsive"><table class="table table-sm" id="sourceTable"></table></div>
+    </div>
+</div>
+
+<!-- D. Point analysis -->
+<div class="card">
+    <div class="card-header"><h3 class="card-title">D. Point analysis</h3></div>
+    <div class="card-body">
+        <div class="controls-row">
+            <div><label>x [m]</label><input type="number" id="px" class="form-control form-control-sm" step="0.1"></div>
+            <div><label>y [m]</label><input type="number" id="py" class="form-control form-control-sm" step="0.1"></div>
+            <div><label>z [m]</label><input type="number" id="pz" class="form-control form-control-sm" step="0.1"></div>
+            <div><button class="btn btn-primary btn-sm" id="probeBtn">Query point</button></div>
+            <div><label>History quantity</label><select id="histSelect" class="form-select form-select-sm"></select></div>
+        </div>
+        <div class="row">
+            <div class="col-lg-5">
+                <div class="hint" id="pointHeader"></div>
+                <div class="table-responsive" style="max-height:520px;overflow:auto"><table class="table table-sm table-values" id="pointTable"></table></div>
+            </div>
+            <div class="col-lg-7">
+                <div id="historyPlot" class="plot-box plot-small mb-3"></div>
+                <div id="psychroPlot" class="plot-box plot-small"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- E. Analytics -->
+<div class="card">
+    <div class="card-header"><h3 class="card-title">E. Room analytics &amp; conservation</h3></div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-lg-6"><div id="chartT" class="plot-box plot-small"></div></div>
+            <div class="col-lg-6"><div id="chartRH" class="plot-box plot-small"></div></div>
+            <div class="col-lg-6"><div id="chartQ" class="plot-box plot-small"></div></div>
+            <div class="col-lg-6"><div id="chartP" class="plot-box plot-small"></div></div>
+            <div class="col-lg-6"><div id="chartCond" class="plot-box plot-small"></div></div>
+            <div class="col-lg-6"><div id="chartCons" class="plot-box plot-small"></div></div>
+        </div>
+        <div class="mt-3"><a class="btn btn-outline-secondary btn-sm" id="csvLink" href="#">Download time series (CSV)</a></div>
+        <h6 class="mt-3">Numerical stability (last step)</h6>
+        <div class="table-responsive"><table class="table table-sm" id="stabTable"></table></div>
+    </div>
+</div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+<script>
+(() => {
+// ---------------------------------------------------------------- palette
+const C = { s1: '#2a78d6', s2: '#eb6834', s3: '#1baf7a', s4: '#eda100', grid: '#e6e5e1',
+            text: '#0b0b0b', text2: '#52514e', surface: '#fcfcfb', muted: '#9a9893' };
+const SEQ_BLUE = [[0, '#cde2fb'], [0.25, '#86b6ef'], [0.5, '#3987e5'], [0.75, '#1c5cab'], [1, '#0d366b']];
+const SEQ_ORANGE = [[0, '#fde6d9'], [0.25, '#f6b08c'], [0.5, '#eb6834'], [0.75, '#b8491c'], [1, '#7a2a0b']];
+const DIVERGING = [[0, '#104281'], [0.25, '#6da7ec'], [0.5, '#f0efec'], [0.75, '#ef8a86'], [1, '#a82d2d']];
+const THERMAL = new Set(['T', 'T_dp', 'T_wb', 'h', 'e_sensible', 'e_total']);
+const SIGNED = new Set(['u', 'v', 'w', 'P_gauge', 'p_dyn', 'CRI', 'dT_dp']);
+const baseLayout = (title, ytitle) => ({
+    title: { text: title, font: { size: 14, color: C.text }, x: 0.02 },
+    paper_bgcolor: C.surface, plot_bgcolor: C.surface, font: { color: C.text2, size: 11 },
+    margin: { l: 60, r: 20, t: 40, b: 95 }, hovermode: 'x unified',
+    xaxis: { title: 'Time [s]', gridcolor: C.grid, linecolor: C.grid, zeroline: false },
+    yaxis: { title: ytitle, gridcolor: C.grid, linecolor: C.grid, zeroline: false },
+    legend: { orientation: 'h', y: -0.32, yanchor: 'top', font: { size: 11 } } });
+const PCFG = { displaylogo: false, responsive: true };
+
+// ---------------------------------------------------------------- state
+let scenario = null, defaults = null, jobId = null, summary = null, pollTimer = null, playTimer = null;
+const fieldCache = new Map();
+const $ = id => document.getElementById(id);
+
+// ---------------------------------------------------------------- path helpers
+function getPath(o, p) { return p.split('.').reduce((a, k) => (a == null ? undefined : a[k]), o); }
+function setPath(o, p, v) {
+    const ks = p.split('.'); let cur = o;
+    for (let i = 0; i < ks.length - 1; i++) { if (cur[ks[i]] == null || typeof cur[ks[i]] !== 'object') cur[ks[i]] = {}; cur = cur[ks[i]]; }
+    if (v === undefined) delete cur[ks.at(-1)]; else cur[ks.at(-1)] = v;
+}
+
+// ---------------------------------------------------------------- form schemas
+const FACE_OPTS = ['W', 'E', 'S', 'N', 'B', 'T'];
+const MOIST_OPTS = ['rh', 'omega', 'dew_point', 'vapour_pressure', 'specific_humidity'];
+const GEOM = [
+    ['geometry.Lx', 'Length Lx [m]', 'num'], ['geometry.Ly', 'Width Ly [m]', 'num'], ['geometry.Lz', 'Height Lz [m]', 'num'],
+    ['geometry.Nx', 'Cells Nx', 'int'], ['geometry.Ny', 'Cells Ny', 'int'], ['geometry.Nz', 'Cells Nz', 'int']];
+const INIT = [
+    ['initial.T', 'Initial T [°C]', 'num'], ['initial.P', 'Initial P (abs) [Pa]', 'num'],
+    ['initial.moisture.mode', 'Moisture input', ['sel', MOIST_OPTS]], ['initial.moisture.value', 'Moisture value', 'num']];
+const WALLS = [
+    ['ambient.T_out', 'Outside T [°C]', 'num'], ['ambient.RH_out', 'Outside RH [%]', 'num'], ['ambient.P_out', 'Outside P at floor [Pa]', 'num'],
+    ['walls.default.mode', 'Wall model', ['sel', ['panel', 'fixed', 'adiabatic']]],
+    ['walls.default.layers.0.L', 'Insulation thickness [m]', 'num'], ['walls.default.layers.0.k', 'Insulation k [W/mK]', 'num'],
+    ['walls.default.h_in', 'h inside [W/m²K]', 'num'], ['walls.default.h_out', 'h outside [W/m²K]', 'num'],
+    ['walls.default.T_surface', 'Fixed wall T [°C] (fixed)', 'num'], ['walls.default.T_out_amplitude', 'Diurnal swing [K]', 'num'],
+    ['walls.T.irradiance', 'Roof solar irradiance [W/m²]', 'num'], ['walls.T.solar_absorptivity', 'Roof absorptivity', 'num'],
+    ['walls.B.T_out', 'Ground T [°C]', 'num'], ['envelope_leakage.ela_per_m2', 'Envelope ELA [m²/m²]', 'num']];
+const NUM = [
+    ['numerics.t_end', 'Simulated time [s]', 'num'], ['numerics.output_interval', 'Output interval [s]', 'num'],
+    ['numerics.dt_mode', 'Δt mode', ['sel', ['auto', 'fixed']]], ['numerics.dt', 'Fixed Δt [s]', 'num'], ['numerics.dt_max', 'Max Δt [s]', 'num'],
+    ['numerics.cfl', 'Courant number', 'num'], ['numerics.turbulence.model', 'Turbulence', ['sel', ['smagorinsky', 'constant', 'laminar']]],
+    ['numerics.turbulence.nu_t', 'Constant ν_t [m²/s]', 'num'], ['numerics.buoyancy', 'Buoyancy', 'bool'],
+    ['numerics.surface_condensation', 'Wall frost model', 'bool'], ['numerics.k_cond', 'Condensation rate k [1/s]', 'num'],
+    ['numerics.k_evap', 'Evaporation rate k [1/s]', 'num'], ['numerics.T_target', 'Target T for cooling time [°C]', 'num']];
+const OPEN = [['name', 'Name', 'text'], ['face', 'Face', ['sel', FACE_OPTS]], ['position', 'Centre x, y, z [m]', 'vec3'],
+              ['width', 'Width [m]', 'num'], ['height', 'Height [m]', 'num']];
+const SCHEMA = {
+    injections: { label: 'Injection', color: C.s1, fields: [
+        ['name', 'Name', 'text'], ['face', 'Face', ['sel', ['interior', ...FACE_OPTS]]], ['position', 'Location x, y, z [m]', 'vec3'],
+        ['direction', 'Jet direction (interior)', 'vec3'], ['width', 'Opening width [m]', 'num'], ['height', 'Opening height [m]', 'num'],
+        ['area', 'Free area [m²]', 'num'], ['flow.mode', 'Flow given as', ['sel', ['velocity', 'volumetric', 'mass', 'pressure']]],
+        ['flow.value', 'Flow value [m/s | m³/s | kg/s]', 'num'], ['P_supply', 'Supply P (abs) [Pa]', 'num'], ['Cd', 'Cd (pressure mode)', 'num'],
+        ['thermal.mode', 'Thermal given as', ['sel', ['temperature', 'sensible_heat']]], ['thermal.value', 'T [°C] | Q_s [W]', 'num'],
+        ['heat_W', 'Heater in stream [W]', 'num'], ['moisture.mode', 'Moisture given as', ['sel', MOIST_OPTS]], ['moisture.value', 'Moisture value', 'num'],
+        ['schedule.t_start', 'Start [s]', 'num'], ['schedule.t_end', 'End [s]', 'num']],
+        template: () => ({ name: 'Injection', face: 'interior', position: [2, 2, 2], direction: [1, 0, 0], width: 0.3, height: 0.3, area: 0.05,
+            flow: { mode: 'velocity', value: 3 }, thermal: { mode: 'temperature', value: -5 }, moisture: { mode: 'rh', value: 70 }, schedule: { t_start: 0 } }) },
+    leakages: { label: 'Leakage', color: C.s2, fields: [...OPEN, ['area', 'Leak area [m²]', 'num'], ['Cd', 'Cd', 'num'],
+        ['exponent', 'Flow exponent n', 'num'], ['T_out', 'Outside T [°C]', 'num'], ['RH_out', 'Outside RH [%]', 'num'], ['P_out', 'Outside P [Pa]', 'num'],
+        ['schedule.t_start', 'Start [s]', 'num'], ['schedule.t_end', 'End [s]', 'num']],
+        template: () => ({ name: 'Leakage', face: 'N', position: [1, 0, 1], width: 0.1, height: 0.1, area: 0.005, Cd: 0.6, exponent: 0.5 }) },
+    doors: { label: 'Door event', color: C.s2, fields: [...OPEN, ['t_open', 'Opens at [s]', 'num'], ['t_close', 'Closes at [s]', 'num'],
+        ['schedule.period', 'Repeat every [s]', 'num'], ['schedule.on_duration', 'Open for [s] per cycle', 'num'],
+        ['T_out', 'Outside T [°C]', 'num'], ['RH_out', 'Outside RH [%]', 'num'], ['P_out', 'Outside P [Pa]', 'num'], ['Cd', 'Cd', 'num'],
+        ['open_fraction', 'Open fraction', 'num'], ['curtain_effectiveness', 'Strip curtain effectiveness', 'num'], ['stack_exchange', 'Stack exchange', 'bool']],
+        template: () => ({ name: 'Door', face: 'W', position: [0, 2, 1.1], width: 1.5, height: 2.2, t_open: 300, t_close: 360, curtain_effectiveness: 0 }) },
+    heat_sources: { label: 'Heat source', color: C.s4, fields: [['name', 'Name', 'text'],
+        ['kind', 'Type', ['sel', ['equipment', 'lighting', 'motor', 'people', 'forklift', 'custom']]], ['position', 'Location x, y, z [m]', 'vec3'],
+        ['power_W', 'Power [W]', 'num'], ['fraction_to_room', 'Fraction to room', 'num'], ['n_people', 'People', 'int'],
+        ['moisture_kg_s', 'Moisture release [kg/s]', 'num'], ['sigma', 'Spread σ [m]', 'num'], ['schedule.t_start', 'On at [s]', 'num'], ['schedule.t_end', 'Off at [s]', 'num']],
+        template: () => ({ name: 'Equipment', kind: 'equipment', position: [2, 2, 1], power_W: 1000, schedule: { t_start: 0 } }) },
+    products: { label: 'Product block', color: C.muted, fields: [['name', 'Name', 'text'], ['box', 'Box x0,x1,y0,y1,z0,z1 [m]', 'box'],
+        ['T_initial', 'Initial product T [°C]', 'num'], ['bulk_density', 'Bulk density [kg/m³]', 'num'], ['cp', 'cp [J/kgK]', 'num'],
+        ['h_surface', 'Surface h [W/m²K]', 'num'], ['respiration_ref_W_kg', 'Respiration at 0 °C [W/kg]', 'num'], ['Q10', 'Q10', 'num']],
+        template: () => ({ name: 'Pallets', box: [1, 3, 1, 2, 0, 1.5], T_initial: -10, bulk_density: 450, cp: 1900, h_surface: 6 }) },
+    cooling_units: { label: 'Unit cooler', color: C.s3, fields: [['name', 'Name', 'text'], ['airflow_m3_s', 'Airflow [m³/s]', 'num'],
+        ['setpoint', 'Setpoint [°C]', 'num'], ['deadband', 'Deadband [K]', 'num'], ['T_coil_leaving', 'Coil leaving T [°C]', 'num'],
+        ['capacity_W', 'Capacity [W]', 'num'], ['fan_power_W', 'Fan power [W]', 'num'],
+        ['control', 'Control', ['sel', ['thermostat', 'always_on', 'off']]], ['fan_mode', 'Fan', ['sel', ['continuous', 'cycling']]],
+        ['supply.face', 'Supply face', ['sel', ['interior', ...FACE_OPTS]]], ['supply.position', 'Supply x, y, z [m]', 'vec3'],
+        ['supply.width', 'Supply width [m]', 'num'], ['supply.height', 'Supply height [m]', 'num'], ['supply.direction', 'Supply jet dir. (interior)', 'vec3'],
+        ['return.face', 'Return face', ['sel', ['interior', ...FACE_OPTS]]], ['return.position', 'Return x, y, z [m]', 'vec3'],
+        ['return.width', 'Return width [m]', 'num'], ['return.height', 'Return height [m]', 'num']],
+        template: () => ({ name: 'Unit cooler', airflow_m3_s: 1.5, setpoint: -20, deadband: 1, T_coil_leaving: -27, capacity_W: 8000, fan_power_W: 300,
+            supply: { face: 'E', position: [5, 2, 3], width: 1.5, height: 0.5 }, return: { face: 'E', position: [5, 2, 2], width: 1.5, height: 0.5 } }) },
+};
+
+function inputFor(obj, path, label, type) {
+    const wrap = document.createElement('div');
+    const lab = document.createElement('label'); lab.textContent = label; wrap.appendChild(lab);
+    const val = getPath(obj, path);
+    const numOrDelete = s => (s === '' ? undefined : Number(s));
+    if (Array.isArray(type) && type[0] === 'sel') {
+        const sel = document.createElement('select');
+        type[1].forEach(o => { const op = document.createElement('option'); op.value = o; op.textContent = o; sel.appendChild(op); });
+        sel.value = val ?? type[1][0];
+        if (val == null) setPath(obj, path, type[1][0]);
+        sel.onchange = () => { setPath(obj, path, sel.value); onFormChange(); };
+        wrap.appendChild(sel);
+    } else if (type === 'vec3' || type === 'box') {
+        const n = type === 'vec3' ? 3 : 6;
+        const box = document.createElement('div'); box.className = 'vec3';
+        const arr = Array.isArray(val) ? val.slice() : new Array(n).fill(0);
+        for (let i = 0; i < n; i++) {
+            const inp = document.createElement('input'); inp.type = 'number'; inp.step = 'any'; inp.value = arr[i] ?? 0;
+            inp.onchange = () => { arr[i] = Number(inp.value); setPath(obj, path, arr.slice()); onFormChange(); };
+            box.appendChild(inp);
+        }
+        if (type === 'box') wrap.classList.add('field-wide');
+        wrap.appendChild(box);
+    } else if (type === 'bool') {
+        const inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = val !== false;
+        inp.onchange = () => { setPath(obj, path, inp.checked); onFormChange(); };
+        wrap.appendChild(inp);
+    } else {
+        const inp = document.createElement('input');
+        inp.type = type === 'text' ? 'text' : 'number'; inp.step = type === 'int' ? '1' : 'any';
+        inp.value = val ?? '';
+        inp.onchange = () => { setPath(obj, path, type === 'text' ? inp.value : numOrDelete(inp.value)); onFormChange(); };
+        wrap.appendChild(inp);
+    }
+    return wrap;
+}
+
+function renderGrid(el, fields) {
+    el.replaceChildren(...fields.map(([p, l, t]) => inputFor(scenario, p, l, t)));
+}
+
+function renderSources() {
+    const list = $('sourceList'); list.replaceChildren();
+    Object.entries(SCHEMA).forEach(([key, sch]) => {
+        (scenario[key] || []).forEach((item, idx) => {
+            const card = document.createElement('div'); card.className = 'src-card'; card.style.borderLeftColor = sch.color;
+            const h = document.createElement('h6');
+            const title = document.createElement('span');
+            const kind = document.createElement('span'); kind.className = 'src-kind'; kind.textContent = sch.label;
+            const name = document.createElement('span'); name.textContent = item.name || '';
+            title.append(kind, name);
+            const rm = document.createElement('button'); rm.className = 'btn-remove'; rm.textContent = 'Remove';
+            rm.onclick = () => { scenario[key].splice(idx, 1); renderSources(); onFormChange(); };
+            h.append(title, rm); card.appendChild(h);
+            const grid = document.createElement('div'); grid.className = 'form-grid';
+            sch.fields.forEach(([p, l, t]) => grid.appendChild(inputFor(item, p, l, t)));
+            card.appendChild(grid); list.appendChild(card);
+        });
+    });
+    if (!list.children.length) { const p = document.createElement('p'); p.className = 'hint'; p.textContent = 'No sources defined. The room will only exchange heat through its walls.'; list.appendChild(p); }
+}
+
+function renderForms() {
+    renderGrid($('formGeom'), GEOM); renderGrid($('formInit'), INIT); renderGrid($('formWalls'), WALLS); renderGrid($('formNum'), NUM);
+    renderSources(); onFormChange();
+}
+
+function onFormChange() {
+    const g = scenario.geometry;
+    const n = g.Nx * g.Ny * g.Nz;
+    $('meshInfo').textContent = `Δx = ${(g.Lx / g.Nx).toFixed(3)} m, Δy = ${(g.Ly / g.Ny).toFixed(3)} m, Δz = ${(g.Lz / g.Nz).toFixed(3)} m · ${n.toLocaleString()} cells · room volume ${(g.Lx * g.Ly * g.Lz).toFixed(1)} m³`;
+    $('jsonEditor').value = JSON.stringify(scenario, null, 2);
+}
+
+function loadScenario(obj) { scenario = JSON.parse(JSON.stringify(obj)); renderForms(); }
+
+// ---------------------------------------------------------------- alerts
+function showAlert(kind, msg, list) {
+    const box = $('alertBox'); box.replaceChildren();
+    if (!msg) return;
+    const d = document.createElement('div'); d.className = `alert alert-${kind} mt-2 mb-0`; d.textContent = msg;
+    (list || []).forEach(w => { const li = document.createElement('div'); li.className = 'small'; li.textContent = '• ' + w; d.appendChild(li); });
+    box.appendChild(d);
+}
+
+// ---------------------------------------------------------------- running
+async function runSimulation() {
+    showAlert(); stopPlay();
+    $('runBtn').disabled = true;
+    try {
+        const res = await fetch('/api/twin/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scenario }) });
+        const data = await res.json();
+        if (!data.success) { showAlert('danger', data.error || 'Could not start simulation'); $('runBtn').disabled = false; return; }
+        jobId = data.job_id; fieldCache.clear();
+        $('progressWrap').style.display = 'block'; $('cancelBtn').style.display = 'inline-block';
+        if (data.warnings?.length) showAlert('warning', 'Scenario warnings:', data.warnings);
+        pollTimer = setInterval(poll, 700);
+    } catch (e) { showAlert('danger', 'Request failed: ' + e); $('runBtn').disabled = false; }
+}
+
+async function poll() {
+    const s = await (await fetch(`/api/twin/jobs/${jobId}`)).json();
+    const pct = Math.round((s.progress || 0) * 100);
+    $('progressBar').style.width = pct + '%'; $('progressBar').textContent = pct + '%';
+    $('progressMsg').textContent = s.message || '';
+    if (['finished', 'failed', 'cancelled'].includes(s.status)) {
+        clearInterval(pollTimer); $('runBtn').disabled = false; $('cancelBtn').style.display = 'none';
+        if (s.status === 'failed') showAlert('danger', 'Simulation failed: ' + (s.error || ''));
+        if (s.n_snapshots > 0) await loadResults();
+    }
+}
+
+// ---------------------------------------------------------------- results
+const fmt = (v, d = 2) => (v == null || !isFinite(v) ? '—' : Math.abs(v) >= 1e5 || (Math.abs(v) < 1e-3 && v !== 0) ? Number(v).toExponential(3) : Number(v).toFixed(d));
+
+async function loadResults() {
+    summary = await (await fetch(`/api/twin/jobs/${jobId}/summary`)).json();
+    $('results').style.display = 'block';
+    const ind = summary.indicators, last = summary.series.at(-1);
+    const tiles = [
+        ['Final mean T', fmt(last.T_mean) + ' °C'], ['T range (final)', `${fmt(last.T_min, 1)} … ${fmt(last.T_max, 1)} °C`],
+        ['Mean RH (final)', fmt(last.RH_mean, 1) + ' %'], ['Room gauge pressure', fmt(last.P_gauge) + ' Pa'],
+        ['Cooling time to ' + fmt(ind.T_target, 1) + ' °C', ind.cooling_time == null ? 'not reached' : fmt(ind.cooling_time, 0) + ' s'],
+        ['Heat in via walls', fmt(ind.Q_in_walls_kJ, 0) + ' kJ'], ['Heat in via infiltration', fmt(ind.Q_in_infiltration_kJ, 0) + ' kJ'],
+        ['Heat removed by coils', fmt(ind.Q_removed_coil_kJ, 0) + ' kJ'], ['Condensate + frost', fmt(ind.total_condensation_kg, 3) + ' kg'],
+        ['Coil frost', fmt(ind.coil_water_kg, 3) + ' kg'], ['Infiltrated / exfiltrated air', `${fmt(ind.leak_in_mass_kg, 1)} / ${fmt(ind.leak_out_mass_kg, 1)} kg`],
+        ['Max |energy error|', fmt(ind.max_abs_energy_error_pct, 2) + ' %']];
+    $('tiles').replaceChildren(...tiles.map(([l, v]) => {
+        const c = document.createElement('div'); c.className = 'col-6 col-md-4 col-lg-3';
+        const t = document.createElement('div'); t.className = 'stat-tile';
+        const vv = document.createElement('div'); vv.className = 'v'; vv.textContent = v;
+        const ll = document.createElement('div'); ll.className = 'l'; ll.textContent = l;
+        t.append(vv, ll); c.appendChild(t); return c; }));
+    const m = summary.mesh;
+    $('runInfo').textContent = `${summary.name || ''} · ${m.Nx}×${m.Ny}×${m.Nz} = ${m.n_cells} cells · ${summary.steps} time steps in ${fmt(summary.wall_time, 1)} s wall time · ${summary.times.length} saved states`;
+    if (summary.warnings?.length) showAlert('warning', 'Scenario warnings:', summary.warnings);
+
+    // controls
+    const fs = $('fieldSelect'); fs.replaceChildren();
+    Object.entries(summary.fields).forEach(([k, f]) => { const o = document.createElement('option'); o.value = k; o.textContent = `${f.label} [${f.unit}]`; fs.appendChild(o); });
+    fs.value = 'T';
+    const hs = $('histSelect'); hs.replaceChildren();
+    defaults.history_keys.forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = (summary.fields[k] || { label: k }).label; hs.appendChild(o); });
+    $('timeSlider').max = summary.times.length - 1; $('timeSlider').value = summary.times.length - 1;
+    $('px').value = (m.Lx / 2).toFixed(2); $('py').value = (m.Ly / 2).toFixed(2); $('pz').value = (m.Lz / 2).toFixed(2);
+    updatePlaneSlider();
+    $('csvLink').href = `/api/twin/jobs/${jobId}/export.csv`;
+    drawAnalytics(); drawStability();
+    await drawField(); await probePoint();
+}
+
+function timeIndex() { return Number($('timeSlider').value); }
+
+function updatePlaneSlider() {
+    const m = summary.mesh, plane = $('planeSelect').value;
+    const L = plane === 'xy' ? m.Lz : plane === 'xz' ? m.Ly : m.Lx;
+    const s = $('posSlider'); s.min = 0; s.max = L; s.step = L / 100;
+    if (Number(s.value) > L || !s.dataset.plane || s.dataset.plane !== plane) s.value = L / 2;
+    s.dataset.plane = plane;
+    $('posLabel').textContent = `(${plane === 'xy' ? 'z' : plane === 'xz' ? 'y' : 'x'} = ${Number(s.value).toFixed(2)} m)`;
+}
+
+function colorscaleFor(name) { return SIGNED.has(name) ? DIVERGING : THERMAL.has(name) ? SEQ_ORANGE : SEQ_BLUE; }
+
+async function fetchField(name, idx) {
+    const key = name + '|' + idx;
+    if (!fieldCache.has(key)) fieldCache.set(key, fetch(`/api/twin/jobs/${jobId}/field?name=${name}&t=${idx}`).then(r => r.json()));
+    return fieldCache.get(key);
+}
+
+async function drawField() {
+    const name = $('fieldSelect').value, idx = timeIndex();
+    $('timeLabel').textContent = `${fmt(summary.times[idx], 0)} s (state ${idx + 1}/${summary.times.length})`;
+    drawSourceTable(idx);
+    if ($('viewSelect').value === 'volume') return drawVolume(name, idx);
+    const plane = $('planeSelect').value, pos = Number($('posSlider').value);
+    const sl = await (await fetch(`/api/twin/jobs/${jobId}/slice?name=${name}&t=${idx}&plane=${plane}&pos=${pos}`)).json();
+    const [la, lb] = plane === 'xy' ? ['x', 'y'] : plane === 'xz' ? ['x', 'z'] : ['y', 'z'];
+    const flat = sl.values.flat().filter(v => v != null);
+    let zmin = Math.min(...flat), zmax = Math.max(...flat);
+    if (SIGNED.has(name)) { const a = Math.max(Math.abs(zmin), Math.abs(zmax)) || 1; zmin = -a; zmax = a; }
+    const traces = [{ type: 'heatmap', x: sl.a, y: sl.b, z: sl.values, colorscale: colorscaleFor(name), zmin, zmax,
+        colorbar: { title: { text: sl.unit, side: 'right' }, thickness: 12 },
+        hovertemplate: `${la}=%{x:.2f} m, ${lb}=%{y:.2f} m<br><b>%{z:.4g}</b> ${sl.unit}<extra>${sl.label}</extra>` }];
+    if ($('vecToggle').checked) {
+        const xs = [], ys = [], sc = 0.45 * Math.min(sl.a[1] - sl.a[0], sl.b[1] - sl.b[0]);
+        let vmax = 1e-9; sl.ua.forEach((r, j) => r.forEach((u, i) => { const v = sl.ub[j][i]; if (u != null) vmax = Math.max(vmax, Math.hypot(u, v)); }));
+        sl.ua.forEach((r, j) => r.forEach((u, i) => {
+            const v = sl.ub[j][i]; if (u == null) return;
+            const x0 = sl.a[i], y0 = sl.b[j], k = sc / vmax * 1.8;
+            const x1 = x0 + u * k, y1 = y0 + v * k;
+            const ang = Math.atan2(y1 - y0, x1 - x0), hl = 0.35 * Math.hypot(x1 - x0, y1 - y0);
+            xs.push(x0, x1, null, x1, x1 - hl * Math.cos(ang - 0.45), null, x1, x1 - hl * Math.cos(ang + 0.45), null);
+            ys.push(y0, y1, null, y1, y1 - hl * Math.sin(ang - 0.45), null, y1, y1 - hl * Math.sin(ang + 0.45), null);
+        }));
+        traces.push({ type: 'scattergl', mode: 'lines', x: xs, y: ys, line: { color: '#0b0b0b', width: 1 }, hoverinfo: 'skip', showlegend: false, opacity: 0.55 });
+    }
+    traces.push({ type: 'scatter', mode: 'markers', x: [Number($('p' + la).value)], y: [Number($('p' + lb).value)], marker: { size: 11, symbol: 'x-thin', line: { width: 2, color: '#b3261e' }, color: '#b3261e' }, name: 'Probe', hoverinfo: 'skip', showlegend: false });
+    const L = { ...baseLayout(`${sl.label} · ${plane.toUpperCase()} plane at ${plane === 'xy' ? 'z' : plane === 'xz' ? 'y' : 'x'} = ${fmt(sl.coord)} m · t = ${fmt(sl.t, 0)} s`, `${lb} [m]`),
+        hovermode: 'closest', xaxis: { title: `${la} [m]`, constrain: 'domain', gridcolor: C.grid }, yaxis: { title: `${lb} [m]`, scaleanchor: 'x', gridcolor: C.grid } };
+    await Plotly.react('fieldPlot', traces, L, PCFG);
+    const plot = $('fieldPlot');
+    plot.removeAllListeners?.('plotly_click');
+    plot.on('plotly_click', ev => {
+        const p = ev.points[0]; if (!p) return;
+        $('p' + la).value = Number(p.x).toFixed(2); $('p' + lb).value = Number(p.y).toFixed(2);
+        const off = plane === 'xy' ? 'z' : plane === 'xz' ? 'y' : 'x'; $('p' + off).value = Number(sl.coord).toFixed(2);
+        probePoint(); drawField();
+    });
+}
+
+function roomOutline(m) {
+    const X = [0, m.Lx], Y = [0, m.Ly], Z = [0, m.Lz], xs = [], ys = [], zs = [];
+    const seg = (a, b) => { xs.push(a[0], b[0], null); ys.push(a[1], b[1], null); zs.push(a[2], b[2], null); };
+    for (const y of Y) for (const z of Z) seg([0, y, z], [m.Lx, y, z]);
+    for (const x of X) for (const z of Z) seg([x, 0, z], [x, m.Ly, z]);
+    for (const x of X) for (const y of Y) seg([x, y, 0], [x, y, m.Lz]);
+    return { type: 'scatter3d', mode: 'lines', x: xs, y: ys, z: zs, line: { color: '#9a9893', width: 2 }, hoverinfo: 'skip', showlegend: false };
+}
+
+function openingRect(g, m) {
+    const snap = { W: [0, 0], E: [0, m.Lx], S: [1, 0], N: [1, m.Ly], B: [2, 0], T: [2, m.Lz] }[g.face];
+    if (!snap) return null;
+    const [n, val] = snap, axes = n === 2 ? [0, 1] : n === 0 ? [1, 2] : [0, 2];
+    const c = g.position.slice(); c[n] = val;
+    const corners = [[-1, -1], [1, -1], [1, 1], [-1, 1], [-1, -1]].map(([a, b]) => { const p = c.slice(); p[axes[0]] += a * g.width / 2; p[axes[1]] += b * g.height / 2; return p; });
+    return corners;
+}
+
+async function drawVolume(name, idx) {
+    const f = await fetchField(name, idx);
+    const m = summary.mesh, xs = [], ys = [], zs = [], vs = [];
+    let k = 0;
+    for (let i = 0; i < m.Nx; i++) for (let j = 0; j < m.Ny; j++) for (let l = 0; l < m.Nz; l++, k++) {
+        xs.push(summary.x[i]); ys.push(summary.y[j]); zs.push(summary.z[l]); vs.push(f.values[k] ?? f.min);
+    }
+    let cmin = f.min, cmax = f.max;
+    if (SIGNED.has(name)) { const a = Math.max(Math.abs(cmin), Math.abs(cmax)) || 1; cmin = -a; cmax = a; }
+    const traces = [{ type: 'volume', x: xs, y: ys, z: zs, value: vs, isomin: cmin, isomax: cmax, cmin, cmax, opacity: 0.12, surface: { count: 14 },
+        colorscale: colorscaleFor(name), colorbar: { title: { text: f.unit }, thickness: 12 }, name: f.label,
+        hovertemplate: `x=%{x:.2f}, y=%{y:.2f}, z=%{z:.2f}<br><b>%{value:.4g}</b> ${f.unit}<extra></extra>` }, roomOutline(m)];
+    // products as boxes
+    summary.products.forEach(p => {
+        const [x0, x1, y0, y1, z0, z1] = p.box;
+        traces.push({ type: 'mesh3d', x: [x0, x1, x1, x0, x0, x1, x1, x0], y: [y0, y0, y1, y1, y0, y0, y1, y1], z: [z0, z0, z0, z0, z1, z1, z1, z1],
+            i: [0, 0, 4, 4, 0, 0, 3, 3, 0, 0, 1, 1], j: [1, 2, 5, 6, 1, 5, 2, 6, 3, 7, 2, 6], k: [2, 3, 6, 7, 5, 4, 6, 7, 7, 4, 6, 5],
+            color: '#8d8a83', opacity: 0.45, name: p.name, hovertemplate: `${p.name}<br>initial T ${p.T_initial} °C<extra></extra>`, showlegend: false });
+    });
+    // source markers and opening outlines
+    const kinds = { injection: [C.s1, 'diamond', 'Injection'], leakage: [C.s2, 'square', 'Leakage'], door: [C.s2, 'square-open', 'Door'],
+                    heat: [C.s4, 'circle', 'Heat source'], cooler: [C.s3, 'cross', 'Unit cooler'] };
+    const byKind = {};
+    const live = Object.fromEntries((summary.series.reduce((best, r) => Math.abs(r.t - summary.times[idx]) < Math.abs(best.t - summary.times[idx]) ? r : best, summary.series[0]).sources || []).map(s => [s.name, s]));
+    summary.sources.forEach(s => {
+        const geoms = s.kind === 'cooler' ? [['supply', s.supply], ['return', s.return]] : [['', s]];
+        geoms.forEach(([role, g]) => {
+            const pos = g.position; if (!pos) return;
+            const lines = [`<b>${s.name}${role ? ' (' + role + ')' : ''}</b>`];
+            Object.entries(s.spec || {}).forEach(([k2, v]) => lines.push(`${k2}: ${Array.isArray(v) ? v.join(' – ') : v}`));
+            const lv = live[s.name];
+            if (lv) lines.push(`ṁ = ${fmt(lv.mdot, 4)} kg/s (${lv.direction})`, `Q total = ${fmt(lv.Q_total, 0)} W`);
+            (byKind[s.kind] ||= { x: [], y: [], z: [], t: [] });
+            byKind[s.kind].x.push(pos[0]); byKind[s.kind].y.push(pos[1]); byKind[s.kind].z.push(pos[2]); byKind[s.kind].t.push(lines.join('<br>'));
+            if (g.face && g.face !== 'interior') {
+                const r = openingRect(g, m);
+                if (r) traces.push({ type: 'scatter3d', mode: 'lines', x: r.map(p => p[0]), y: r.map(p => p[1]), z: r.map(p => p[2]), line: { color: kinds[s.kind][0], width: 5 }, hoverinfo: 'skip', showlegend: false });
+            }
+        });
+    });
+    Object.entries(byKind).forEach(([kind, d]) => traces.push({ type: 'scatter3d', mode: 'markers', x: d.x, y: d.y, z: d.z, text: d.t, hovertemplate: '%{text}<extra></extra>',
+        marker: { size: 7, color: kinds[kind][0], symbol: kinds[kind][1], line: { color: C.surface, width: 2 } }, name: kinds[kind][2] }));
+    traces.push({ type: 'scatter3d', mode: 'markers', x: [Number($('px').value)], y: [Number($('py').value)], z: [Number($('pz').value)],
+        marker: { size: 5, color: '#b3261e' }, name: 'Probe point', hoverinfo: 'name' });
+    if ($('vecToggle').checked) {
+        const [u, v, w] = await Promise.all(['u', 'v', 'w'].map(n => fetchField(n, idx)));
+        const cx = [], cy = [], cz = [], cu = [], cv = [], cw = [];
+        const stride = Math.max(1, Math.round(Math.cbrt(m.n_cells / 700)));
+        k = 0;
+        for (let i = 0; i < m.Nx; i++) for (let j = 0; j < m.Ny; j++) for (let l = 0; l < m.Nz; l++, k++) {
+            if (i % stride || j % stride || l % stride || u.values[k] == null) continue;
+            cx.push(summary.x[i]); cy.push(summary.y[j]); cz.push(summary.z[l]); cu.push(u.values[k]); cv.push(v.values[k]); cw.push(w.values[k]);
+        }
+        traces.push({ type: 'cone', x: cx, y: cy, z: cz, u: cu, v: cv, w: cw, sizemode: 'scaled', sizeref: 0.6, anchor: 'tail', showscale: false,
+            colorscale: [[0, '#52514e'], [1, '#0b0b0b']], opacity: 0.6, name: 'Velocity', hovertemplate: '|V| = %{norm:.3f} m/s<extra></extra>' });
+    }
+    const L = { paper_bgcolor: C.surface, margin: { l: 0, r: 0, t: 36, b: 0 }, title: { text: `${f.label} · t = ${fmt(f.t, 0)} s`, font: { size: 14 }, x: 0.02 },
+        legend: { orientation: 'h', y: 0.02 },
+        scene: { aspectmode: 'data', xaxis: { title: 'x [m]' }, yaxis: { title: 'y [m]' }, zaxis: { title: 'z [m]' }, camera: { eye: { x: 1.6, y: -1.6, z: 1.0 } } } };
+    await Plotly.react('fieldPlot', traces, L, PCFG);
+}
+
+function drawSourceTable(idx) {
+    const t = summary.times[idx];
+    const row = summary.series.reduce((b, r) => Math.abs(r.t - t) < Math.abs(b.t - t) ? r : b, summary.series[0]);
+    const tbl = $('sourceTable'); tbl.replaceChildren();
+    const head = ['Source', 'Type', 'Direction', 'ṁ [kg/s]', 'V̇ [m³/s]', 'Exchange [m³/s]', 'ΔP [Pa]', 'T in [°C]', 'ω in [g/kg]', 'Q sens. [W]', 'Q lat. [W]', 'Q total [W]'];
+    const thead = tbl.createTHead().insertRow(); head.forEach(h => { const th = document.createElement('th'); th.textContent = h; thead.appendChild(th); });
+    const body = tbl.createTBody();
+    (row.sources || []).forEach(s => {
+        const r = body.insertRow();
+        [s.name, s.kind, s.direction, fmt(s.mdot, 4), fmt(s.V, 4), fmt(s.V_exchange, 3), fmt(s.dP, 2), fmt(s.T, 1), fmt(s.omega * 1000, 3),
+         fmt(s.Q_sensible, 0), fmt(s.Q_latent, 0), fmt(s.Q_total, 0)].forEach(v => { r.insertCell().textContent = v; });
+    });
+    if (!(row.sources || []).length) { const r = body.insertRow(); const c = r.insertCell(); c.colSpan = head.length; c.textContent = 'No injection, leakage or door openings.'; }
+}
+
+// ---------------------------------------------------------------- point analysis
+let lastHistory = null;
+async function probePoint() {
+    if (!jobId) return;
+    const x = $('px').value, y = $('py').value, z = $('pz').value, idx = timeIndex();
+    const d = await (await fetch(`/api/twin/jobs/${jobId}/point?x=${x}&y=${y}&z=${z}&t=${idx}`)).json();
+    if (d.error) { showAlert('danger', d.error); return; }
+    const st = d.state, tbl = $('pointTable'); tbl.replaceChildren();
+    if (st.inside_product) {
+        $('pointHeader').textContent = `Point (${x}, ${y}, ${z}) lies inside a product block, cell ${st.cell.join(',')}. Product temperature ${fmt(st.T_product)} °C.`;
+        return;
+    }
+    $('pointHeader').textContent = `Selected point x = ${fmt(+x)} m, y = ${fmt(+y)} m, z = ${fmt(+z)} m · cell (${st.cell.join(', ')}) · t = ${fmt(st.t, 0)} s · air is ${st.saturation_state}`;
+    const body = tbl.createTBody();
+    st.rows.forEach(r => { const tr = body.insertRow(); tr.insertCell().textContent = r.name;
+        const v = tr.insertCell(); v.className = 'num'; v.textContent = typeof r.value === 'string' ? r.value : fmt(r.value, Math.abs(r.value) < 0.1 ? 5 : 3);
+        tr.insertCell().textContent = r.unit; });
+    lastHistory = d.history; drawHistory(); drawPsychro();
+}
+
+function drawHistory() {
+    if (!lastHistory) return;
+    const key = $('histSelect').value, f = summary.fields[key] || { label: key, unit: '' };
+    Plotly.react('historyPlot', [{ type: 'scatter', mode: 'lines+markers', x: lastHistory.t, y: lastHistory[key], line: { color: C.s1, width: 2 }, marker: { size: 8, color: C.s1, line: { color: C.surface, width: 2 } }, name: f.label,
+        hovertemplate: `<b>%{y:.4g}</b> ${f.unit}<extra></extra>` }],
+        { ...baseLayout(`${f.label} at the selected point`, `${f.label} [${f.unit}]`), showlegend: false }, PCFG);
+}
+
+// Hyland-Wexler saturation pressure (same as the solver) for the psychrometric chart
+function pws(T) {
+    const Tk = T + 273.15;
+    if (T < 0) return Math.exp(-5.6745359e3 / Tk + 6.3925247 - 9.6778430e-3 * Tk + 6.2215701e-7 * Tk ** 2 + 2.0747825e-9 * Tk ** 3 - 9.4840240e-13 * Tk ** 4 + 4.1635019 * Math.log(Tk));
+    return Math.exp(-5.8002206e3 / Tk + 1.3914993 - 4.8640239e-2 * Tk + 4.1764768e-5 * Tk ** 2 - 1.4452093e-8 * Tk ** 3 + 6.5459673 * Math.log(Tk));
+}
+function drawPsychro() {
+    const h = lastHistory; if (!h) return;
+    const Ts = h.T.filter(v => v != null);
+    const lo = Math.floor(Math.min(...Ts) - 4), hi = Math.ceil(Math.max(...Ts) + 4), P = 101325;
+    const grid = []; for (let t = lo; t <= hi; t += (hi - lo) / 80) grid.push(t);
+    const curve = rh => grid.map(t => { const pv = rh * pws(t); return 1000 * 0.621945 * pv / (P - pv); });
+    const traces = [{ x: grid, y: curve(1), mode: 'lines', line: { color: '#52514e', width: 2 }, name: 'Saturation (100 %)', hoverinfo: 'skip' },
+                    { x: grid, y: curve(0.5), mode: 'lines', line: { color: C.grid, width: 1.5 }, name: '50 % RH', hoverinfo: 'skip' },
+                    { x: h.T, y: h.omega.map(w => w == null ? null : w * 1000), mode: 'lines+markers', name: 'State trajectory', line: { color: C.s2, width: 2 },
+                      marker: { size: 8, color: h.t, colorscale: SEQ_ORANGE, line: { color: C.surface, width: 2 }, colorbar: { title: { text: 't [s]' }, thickness: 10, len: 0.8 } },
+                      customdata: h.t, hovertemplate: 't = %{customdata:.0f} s<br>T = %{x:.2f} °C<br><b>ω = %{y:.4f} g/kg</b><extra></extra>' }];
+    Plotly.react('psychroPlot', traces, { ...baseLayout('Psychrometric trajectory of the selected point', 'Humidity ratio ω [g/kg]'), hovermode: 'closest',
+        xaxis: { title: 'Dry-bulb temperature [°C]', gridcolor: C.grid }, legend: { orientation: 'h', y: -0.3 } }, PCFG);
+}
+
+// ---------------------------------------------------------------- analytics
+function line(x, y, name, color, extra = {}) { return { type: 'scatter', mode: 'lines', x, y, name, line: { color, width: 2, ...(extra.line || {}) }, hovertemplate: `<b>%{y:.4g}</b>`, ...extra.rest }; }
+function drawAnalytics() {
+    const S = summary.series, t = S.map(r => r.t), g = k => S.map(r => r[k]);
+    Plotly.react('chartT', [line(t, g('T_mean'), 'Mean', C.s1), line(t, g('T_min'), 'Minimum', C.s3), line(t, g('T_max'), 'Maximum', C.s2),
+        ...(S[0].T_product != null ? [line(t, g('T_product'), 'Product mean', C.s4)] : [])], baseLayout('Room air temperature', 'T [°C]'), PCFG);
+    Plotly.react('chartRH', [line(t, g('RH_mean'), 'Mean RH', C.s1), line(t, g('RH_max'), 'Maximum RH', C.s2)], baseLayout('Relative humidity', 'RH [%]'), PCFG);
+    Plotly.react('chartQ', [line(t, g('Q_walls'), 'Walls (in)', C.s1), line(t, g('Q_infiltration'), 'Infiltration (in)', C.s2),
+        line(t, g('Q_internal'), 'Internal loads (in)', C.s4), line(t, g('Q_coil'), 'Coil (removed)', C.s3)], baseLayout('Heat flows', 'Heat rate [W]'), PCFG);
+    Plotly.react('chartP', [line(t, g('P_gauge'), 'Room gauge pressure at floor', C.s1)], { ...baseLayout('Room pressure relative to outside', 'ΔP [Pa]'), showlegend: false }, PCFG);
+    Plotly.react('chartCond', [line(t, g('condensate_bulk'), 'Airborne deposits', C.s1), line(t, g('frost_wall'), 'Wall frost/condensate', C.s2),
+        line(t, g('coil_water'), 'Coil frost', C.s3)], baseLayout('Accumulated condensate & frost', 'Mass [kg]'), PCFG);
+    Plotly.react('chartCons', [line(t, g('mass_error_pct'), 'Dry-air mass', C.s1), line(t, g('water_error_pct'), 'Water', C.s2), line(t, g('energy_error_pct'), 'Energy', C.s3)],
+        { ...baseLayout('Conservation error (ledger vs. inventory)', 'Error [%]'), yaxis: { title: 'Error [%]', gridcolor: C.grid, exponentformat: 'e' } }, PCFG);
+}
+
+function drawStability() {
+    const s = summary.stability, tbl = $('stabTable'); tbl.replaceChildren();
+    const rows = [['Selected Δt limit (CFL + diffusion)', fmt(s.dt, 4) + ' s'], ['Advective (CFL) limit', fmt(s.dt_cfl, 4) + ' s'],
+        ['Diffusive limit', fmt(s.dt_diffusion, 4) + ' s'], ['Wall-exchange limit', fmt(s.dt_wall, 1) + ' s'],
+        ['Max face velocity', fmt(s.u_max, 3) + ' m/s'], ['Effective thermal diffusivity α_eff', fmt(s.alpha_eff) + ' m²/s'],
+        ['Effective moisture diffusivity D_eff', fmt(s.D_eff) + ' m²/s'],
+        ['Max continuity residual', fmt(Math.max(...summary.series.map(r => r.divergence))) + ' 1/s']];
+    const b = tbl.createTBody();
+    rows.forEach(([a, v]) => { const r = b.insertRow(); r.insertCell().textContent = a; r.insertCell().textContent = v; });
+}
+
+// ---------------------------------------------------------------- play
+function stopPlay() { if (playTimer) { clearInterval(playTimer); playTimer = null; $('playBtn').textContent = '▶ Play'; } }
+function togglePlay() {
+    if (playTimer) return stopPlay();
+    $('playBtn').textContent = '❚❚ Pause';
+    playTimer = setInterval(async () => {
+        const s = $('timeSlider'); s.value = (Number(s.value) + 1) % (Number(s.max) + 1);
+        await drawField();
+    }, 900);
+}
+
+// ---------------------------------------------------------------- wiring
+async function init() {
+    defaults = await (await fetch('/api/twin/defaults')).json();
+    loadScenario(defaults.scenario);
+    $('loadPresetBtn').onclick = () => loadScenario(defaults.presets[$('presetSelect').value]);
+    document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
+        const key = b.dataset.add; (scenario[key] ||= []).push(SCHEMA[key].template()); renderSources(); onFormChange(); });
+    $('jsonRefresh').onclick = onFormChange;
+    $('jsonApply').onclick = () => { try { loadScenario(JSON.parse($('jsonEditor').value)); showAlert(); } catch (e) { showAlert('danger', 'Invalid JSON: ' + e.message); } };
+    $('runBtn').onclick = runSimulation;
+    $('cancelBtn').onclick = () => fetch(`/api/twin/jobs/${jobId}/cancel`, { method: 'POST' });
+    ['fieldSelect', 'viewSelect', 'vecToggle'].forEach(id => $(id).onchange = drawField);
+    $('planeSelect').onchange = () => { updatePlaneSlider(); drawField(); };
+    $('posSlider').oninput = updatePlaneSlider; $('posSlider').onchange = drawField;
+    $('timeSlider').oninput = () => { $('timeLabel').textContent = `${fmt(summary.times[timeIndex()], 0)} s`; };
+    $('timeSlider').onchange = () => { drawField(); probePoint(); };
+    $('playBtn').onclick = togglePlay;
+    $('probeBtn').onclick = () => { probePoint(); drawField(); };
+    $('histSelect').onchange = drawHistory;
+}
+init();
+})();
+</script>
+{% endblock %}

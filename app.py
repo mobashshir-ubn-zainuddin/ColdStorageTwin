@@ -17,8 +17,12 @@ from visualization.visualizer import (
 )
 
 
+from api.routes import twin_api
+
+
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.register_blueprint(twin_api)
 
 # Ensure static directory exists
 os.makedirs('static', exist_ok=True)
@@ -35,6 +39,12 @@ def home():
 def dashboard():
     """Dashboard with simulation controls"""
     return render_template('dashboard.html')
+
+
+@app.route('/twin')
+def twin():
+    """Full 3-D numerical digital twin: airflow, pressure, injection, leakage, heat and moisture"""
+    return render_template('twin.html')
 
 
 @app.route('/about-cold-storage')

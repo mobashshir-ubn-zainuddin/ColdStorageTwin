@@ -9,7 +9,7 @@ P_ref = 101325 Pa
 
 import numpy as np
 from typing import Union, Dict, Any
-from .psychrometrics import calculate_psychrometrics, LV_REF
+from .psychrometrics import calculate_psychrometrics, LV_REF, L_VAP0
 from .properties import cp_moist_air
 
 T_REF = 0.0  # Reference temperature [°C]
@@ -61,3 +61,20 @@ def total_energy(mass_ma: np.ndarray, mass_v: np.ndarray, T: np.ndarray, omega: 
     E_total = E_s + E_l
     """
     return sensible_energy(mass_ma, T, omega) + latent_energy(mass_v)
+
+
+def sensible_energy_field(T: np.ndarray, P: np.ndarray, omega: np.ndarray, T_ref: float = T_REF) -> np.ndarray:
+    """Sensible energy density rho_ma * cp_ma * (T - T_ref) [J/m³] with an explicit reference temperature."""
+    props = calculate_psychrometrics(T, P, omega)
+    return props['rho_ma'] * cp_moist_air(T, omega) * (np.asarray(T) - T_ref)
+
+
+def latent_energy_field(T: np.ndarray, P: np.ndarray, omega: np.ndarray) -> np.ndarray:
+    """Latent energy density rho_da * omega * L [J/m³] (plan Module 4 §26)."""
+    props = calculate_psychrometrics(T, P, omega)
+    return props['rho_da'] * np.asarray(omega) * L_VAP0
+
+
+def total_energy_field(T: np.ndarray, P: np.ndarray, omega: np.ndarray, T_ref: float = T_REF) -> np.ndarray:
+    """Total energy density: sensible + latent [J/m³]."""
+    return sensible_energy_field(T, P, omega, T_ref) + latent_energy_field(T, P, omega)
