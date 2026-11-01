@@ -35,6 +35,12 @@ def home():
     return render_template('index.html')
 
 
+@app.route('/dashboard')
+def dashboard():
+    """Dashboard with simulation controls"""
+    return render_template('dashboard.html')
+
+
 @app.route('/twin')
 def twin():
     """Full 3-D numerical digital twin: airflow, pressure, injection, leakage, heat and moisture"""
