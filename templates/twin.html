@@ -255,48 +255,78 @@ const NUM = [
     ['numerics.k_evap', 'Evaporation rate k [1/s]', 'num'], ['numerics.T_target', 'Target T for cooling time [°C]', 'num']];
 const OPEN = [['name', 'Name', 'text'], ['face', 'Face', ['sel', FACE_OPTS]], ['position', 'Centre x, y, z [m]', 'vec3'],
               ['width', 'Width [m]', 'num'], ['height', 'Height [m]', 'num']];
+function heatSourceFields(item) {
+    const kind = item.kind || 'equipment';
+    const base = [
+        ['name', 'Name', 'text'],
+        ['kind', 'Type', ['sel', ['equipment', 'lighting', 'motor', 'people', 'forklift', 'custom']]],
+        ['position', 'Location x, y, z [m]', 'vec3'],
+    ];
+    const sched = [
+        ['sigma', 'Spread σ [m]', 'num', '0.5'],
+        ['schedule.t_start', 'On at [s]', 'num', '0'],
+        ['schedule.t_end', 'Off at [s]', 'num', ''],
+    ];
+    if (kind === 'people') {
+        return [...base,
+            ['n_people', 'Number of people', 'int', '2'],
+            ['power_W', 'Sensible heat per person [W]', 'num', '75'],
+            ['moisture_kg_s', 'Moisture release [kg/s]', 'num', '0.000120'],
+            ...sched];
+    }
+    const powerPh  = { lighting: '400', motor: '2000', forklift: '3000' }[kind] ?? '1000';
+    const fracPh   = { lighting: '0.05', motor: '0.9', forklift: '0.5' }[kind] ?? '1.0';
+    return [...base,
+        ['power_W', 'Power [W]', 'num', powerPh],
+        ['fraction_to_room', 'Fraction to room', 'num', fracPh],
+        ...sched];
+}
+
 const SCHEMA = {
     injections: { label: 'Injection', color: C.s1, fields: [
         ['name', 'Name', 'text'], ['face', 'Face', ['sel', ['interior', ...FACE_OPTS]]], ['position', 'Location x, y, z [m]', 'vec3'],
-        ['direction', 'Jet direction (interior)', 'vec3'], ['width', 'Opening width [m]', 'num'], ['height', 'Opening height [m]', 'num'],
-        ['area', 'Free area [m²]', 'num'], ['flow.mode', 'Flow given as', ['sel', ['velocity', 'volumetric', 'mass', 'pressure']]],
-        ['flow.value', 'Flow value [m/s | m³/s | kg/s]', 'num'], ['P_supply', 'Supply P (abs) [Pa]', 'num'], ['Cd', 'Cd (pressure mode)', 'num'],
-        ['thermal.mode', 'Thermal given as', ['sel', ['temperature', 'sensible_heat']]], ['thermal.value', 'T [°C] | Q_s [W]', 'num'],
-        ['heat_W', 'Heater in stream [W]', 'num'], ['moisture.mode', 'Moisture given as', ['sel', MOIST_OPTS]], ['moisture.value', 'Moisture value', 'num'],
-        ['schedule.t_start', 'Start [s]', 'num'], ['schedule.t_end', 'End [s]', 'num']],
+        ['direction', 'Jet direction (interior)', 'vec3'], ['width', 'Opening width [m]', 'num', '0.3'], ['height', 'Opening height [m]', 'num', '0.3'],
+        ['area', 'Free area [m²]', 'num', '0.05'], ['flow.mode', 'Flow given as', ['sel', ['velocity', 'volumetric', 'mass', 'pressure']]],
+        ['flow.value', 'Flow value [m/s | m³/s | kg/s]', 'num', '3'], ['P_supply', 'Supply P (abs) [Pa]', 'num', '101325'], ['Cd', 'Cd (pressure mode)', 'num', '0.65'],
+        ['thermal.mode', 'Thermal given as', ['sel', ['temperature', 'sensible_heat']]], ['thermal.value', 'T [°C] | Q_s [W]', 'num', '-5'],
+        ['heat_W', 'Heater in stream [W]', 'num', '0'], ['moisture.mode', 'Moisture given as', ['sel', MOIST_OPTS]], ['moisture.value', 'Moisture value', 'num', '70'],
+        ['schedule.t_start', 'Start [s]', 'num', '0'], ['schedule.t_end', 'End [s]', 'num', '']],
         template: () => ({ name: 'Injection', face: 'interior', position: [2, 2, 2], direction: [1, 0, 0], width: 0.3, height: 0.3, area: 0.05,
             flow: { mode: 'velocity', value: 3 }, thermal: { mode: 'temperature', value: -5 }, moisture: { mode: 'rh', value: 70 }, schedule: { t_start: 0 } }) },
-    leakages: { label: 'Leakage', color: C.s2, fields: [...OPEN, ['area', 'Leak area [m²]', 'num'], ['Cd', 'Cd', 'num'],
-        ['exponent', 'Flow exponent n', 'num'], ['T_out', 'Outside T [°C]', 'num'], ['RH_out', 'Outside RH [%]', 'num'], ['P_out', 'Outside P [Pa]', 'num'],
-        ['schedule.t_start', 'Start [s]', 'num'], ['schedule.t_end', 'End [s]', 'num']],
+    leakages: { label: 'Leakage', color: C.s2, fields: [
+        ['name', 'Name', 'text'], ['face', 'Face', ['sel', FACE_OPTS]], ['position', 'Centre x, y, z [m]', 'vec3'],
+        ['width', 'Width [m]', 'num', '0.1'], ['height', 'Height [m]', 'num', '0.1'],
+        ['area', 'Leak area [m²]', 'num', '0.005'], ['Cd', 'Cd', 'num', '0.6'],
+        ['exponent', 'Flow exponent n', 'num', '0.5'], ['T_out', 'Outside T [°C]', 'num', '30'], ['RH_out', 'Outside RH [%]', 'num', '80'], ['P_out', 'Outside P [Pa]', 'num', ''],
+        ['schedule.t_start', 'Start [s]', 'num', '0'], ['schedule.t_end', 'End [s]', 'num', '']],
         template: () => ({ name: 'Leakage', face: 'N', position: [1, 0, 1], width: 0.1, height: 0.1, area: 0.005, Cd: 0.6, exponent: 0.5 }) },
-    doors: { label: 'Door event', color: C.s2, fields: [...OPEN, ['t_open', 'Opens at [s]', 'num'], ['t_close', 'Closes at [s]', 'num'],
-        ['schedule.period', 'Repeat every [s]', 'num'], ['schedule.on_duration', 'Open for [s] per cycle', 'num'],
-        ['T_out', 'Outside T [°C]', 'num'], ['RH_out', 'Outside RH [%]', 'num'], ['P_out', 'Outside P [Pa]', 'num'], ['Cd', 'Cd', 'num'],
-        ['open_fraction', 'Open fraction', 'num'], ['curtain_effectiveness', 'Strip curtain effectiveness', 'num'], ['stack_exchange', 'Stack exchange', 'bool']],
+    doors: { label: 'Door event', color: C.s2, fields: [
+        ['name', 'Name', 'text'], ['face', 'Face', ['sel', FACE_OPTS]], ['position', 'Centre x, y, z [m]', 'vec3'],
+        ['width', 'Width [m]', 'num', '1.5'], ['height', 'Height [m]', 'num', '2.2'],
+        ['t_open', 'Opens at [s]', 'num', '300'], ['t_close', 'Closes at [s]', 'num', '360'],
+        ['schedule.period', 'Repeat every [s]', 'num', '3600'], ['schedule.on_duration', 'Open for [s] per cycle', 'num', '30'],
+        ['T_out', 'Outside T [°C]', 'num', '30'], ['RH_out', 'Outside RH [%]', 'num', '80'], ['P_out', 'Outside P [Pa]', 'num', ''], ['Cd', 'Cd', 'num', '0.65'],
+        ['open_fraction', 'Open fraction', 'num', '1.0'], ['curtain_effectiveness', 'Strip curtain effectiveness', 'num', '0.6'], ['stack_exchange', 'Stack exchange', 'bool']],
         template: () => ({ name: 'Door', face: 'W', position: [0, 2, 1.1], width: 1.5, height: 2.2, t_open: 300, t_close: 360, curtain_effectiveness: 0 }) },
-    heat_sources: { label: 'Heat source', color: C.s4, fields: [['name', 'Name', 'text'],
-        ['kind', 'Type', ['sel', ['equipment', 'lighting', 'motor', 'people', 'forklift', 'custom']]], ['position', 'Location x, y, z [m]', 'vec3'],
-        ['power_W', 'Power [W]', 'num'], ['fraction_to_room', 'Fraction to room', 'num'], ['n_people', 'People', 'int'],
-        ['moisture_kg_s', 'Moisture release [kg/s]', 'num'], ['sigma', 'Spread σ [m]', 'num'], ['schedule.t_start', 'On at [s]', 'num'], ['schedule.t_end', 'Off at [s]', 'num']],
+    heat_sources: { label: 'Heat source', color: C.s4, fields: heatSourceFields,
         template: () => ({ name: 'Equipment', kind: 'equipment', position: [2, 2, 1], power_W: 1000, schedule: { t_start: 0 } }) },
     products: { label: 'Product block', color: C.muted, fields: [['name', 'Name', 'text'], ['box', 'Box x0,x1,y0,y1,z0,z1 [m]', 'box'],
-        ['T_initial', 'Initial product T [°C]', 'num'], ['bulk_density', 'Bulk density [kg/m³]', 'num'], ['cp', 'cp [J/kgK]', 'num'],
-        ['h_surface', 'Surface h [W/m²K]', 'num'], ['respiration_ref_W_kg', 'Respiration at 0 °C [W/kg]', 'num'], ['Q10', 'Q10', 'num']],
+        ['T_initial', 'Initial product T [°C]', 'num', '-12'], ['bulk_density', 'Bulk density [kg/m³]', 'num', '450'], ['cp', 'cp [J/kgK]', 'num', '1900'],
+        ['h_surface', 'Surface h [W/m²K]', 'num', '6'], ['respiration_ref_W_kg', 'Respiration at 0 °C [W/kg]', 'num', '0.05'], ['Q10', 'Q10', 'num', '2']],
         template: () => ({ name: 'Pallets', box: [1, 3, 1, 2, 0, 1.5], T_initial: -10, bulk_density: 450, cp: 1900, h_surface: 6 }) },
-    cooling_units: { label: 'Unit cooler', color: C.s3, fields: [['name', 'Name', 'text'], ['airflow_m3_s', 'Airflow [m³/s]', 'num'],
-        ['setpoint', 'Setpoint [°C]', 'num'], ['deadband', 'Deadband [K]', 'num'], ['T_coil_leaving', 'Coil leaving T [°C]', 'num'],
-        ['capacity_W', 'Capacity [W]', 'num'], ['fan_power_W', 'Fan power [W]', 'num'],
+    cooling_units: { label: 'Unit cooler', color: C.s3, fields: [['name', 'Name', 'text'], ['airflow_m3_s', 'Airflow [m³/s]', 'num', '2'],
+        ['setpoint', 'Setpoint [°C]', 'num', '-20'], ['deadband', 'Deadband [K]', 'num', '1'], ['T_coil_leaving', 'Coil leaving T [°C]', 'num', '-27'],
+        ['capacity_W', 'Capacity [W]', 'num', '12000'], ['fan_power_W', 'Fan power [W]', 'num', '400'],
         ['control', 'Control', ['sel', ['thermostat', 'always_on', 'off']]], ['fan_mode', 'Fan', ['sel', ['continuous', 'cycling']]],
         ['supply.face', 'Supply face', ['sel', ['interior', ...FACE_OPTS]]], ['supply.position', 'Supply x, y, z [m]', 'vec3'],
-        ['supply.width', 'Supply width [m]', 'num'], ['supply.height', 'Supply height [m]', 'num'], ['supply.direction', 'Supply jet dir. (interior)', 'vec3'],
+        ['supply.width', 'Supply width [m]', 'num', '2'], ['supply.height', 'Supply height [m]', 'num', '0.5'], ['supply.direction', 'Supply jet dir. (interior)', 'vec3'],
         ['return.face', 'Return face', ['sel', ['interior', ...FACE_OPTS]]], ['return.position', 'Return x, y, z [m]', 'vec3'],
-        ['return.width', 'Return width [m]', 'num'], ['return.height', 'Return height [m]', 'num']],
+        ['return.width', 'Return width [m]', 'num', '2'], ['return.height', 'Return height [m]', 'num', '0.5']],
         template: () => ({ name: 'Unit cooler', airflow_m3_s: 1.5, setpoint: -20, deadband: 1, T_coil_leaving: -27, capacity_W: 8000, fan_power_W: 300,
             supply: { face: 'E', position: [5, 2, 3], width: 1.5, height: 0.5 }, return: { face: 'E', position: [5, 2, 2], width: 1.5, height: 0.5 } }) },
 };
 
-function inputFor(obj, path, label, type) {
+function inputFor(obj, path, label, type, placeholder) {
     const wrap = document.createElement('div');
     const lab = document.createElement('label'); lab.textContent = label; wrap.appendChild(lab);
     const val = getPath(obj, path);
@@ -327,6 +357,7 @@ function inputFor(obj, path, label, type) {
         const inp = document.createElement('input');
         inp.type = type === 'text' ? 'text' : 'number'; inp.step = type === 'int' ? '1' : 'any';
         inp.value = val ?? '';
+        if (placeholder != null) inp.placeholder = String(placeholder);
         inp.onchange = () => { setPath(obj, path, type === 'text' ? inp.value : numOrDelete(inp.value)); onFormChange(); };
         wrap.appendChild(inp);
     }
@@ -334,7 +365,7 @@ function inputFor(obj, path, label, type) {
 }
 
 function renderGrid(el, fields) {
-    el.replaceChildren(...fields.map(([p, l, t]) => inputFor(scenario, p, l, t)));
+    el.replaceChildren(...fields.map(([p, l, t, ph]) => inputFor(scenario, p, l, t, ph)));
 }
 
 function renderSources() {
@@ -351,7 +382,12 @@ function renderSources() {
             rm.onclick = () => { scenario[key].splice(idx, 1); renderSources(); onFormChange(); };
             h.append(title, rm); card.appendChild(h);
             const grid = document.createElement('div'); grid.className = 'form-grid';
-            sch.fields.forEach(([p, l, t]) => grid.appendChild(inputFor(item, p, l, t)));
+            const fields = typeof sch.fields === 'function' ? sch.fields(item) : sch.fields;
+            fields.forEach(([p, l, t, ph]) => grid.appendChild(inputFor(item, p, l, t, ph)));
+            if (key === 'heat_sources') {
+                const kindSel = [...grid.querySelectorAll('select')].find(s => [...s.options].some(o => o.value === 'lighting'));
+                if (kindSel) { const prev = kindSel.onchange; kindSel.onchange = function(e) { if (prev) prev.call(this, e); renderSources(); }; }
+            }
             card.appendChild(grid); list.appendChild(card);
         });
     });
